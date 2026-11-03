@@ -19,6 +19,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist
 OutputBaseFilename=Guardian-Parent-PC-Setup-{#AppVersion}
+SetupIconFile=..\assets\guardian.ico
+UninstallDisplayIcon={app}\guardian-relay.exe
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -29,13 +31,14 @@ WelcomeLabel2=This installs the Guardian viewer on a parent's PC.%n%nIn Home mod
 [Files]
 Source: "..\target\release\guardian-relay.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\relay\web\*"; DestDir: "{app}\web"; Flags: ignoreversion recursesubdirs
+Source: "..\assets\guardian.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [INI]
 Filename: "{app}\Guardian.url"; Section: "InternetShortcut"; Key: "URL"; String: "http://localhost:8080"
 
 [Icons]
-Name: "{autodesktop}\Guardian"; Filename: "{app}\Guardian.url"
-Name: "{autoprograms}\Guardian"; Filename: "{app}\Guardian.url"
+Name: "{autodesktop}\Guardian"; Filename: "{app}\Guardian.url"; IconFilename: "{app}\guardian.ico"
+Name: "{autoprograms}\Guardian"; Filename: "{app}\Guardian.url"; IconFilename: "{app}\guardian.ico"
 ; Start the relay quietly whenever anyone signs in to this PC.
 Name: "{commonstartup}\Guardian relay"; Filename: "{app}\guardian-relay.exe"; WorkingDir: "{app}"
 

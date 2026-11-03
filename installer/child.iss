@@ -20,6 +20,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist
 OutputBaseFilename=Guardian-Child-PC-Setup-{#AppVersion}
+SetupIconFile=..\assets\guardian.ico
+UninstallDisplayIcon={app}\guardian-agent.exe
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -31,6 +33,7 @@ WelcomeLabel2=This installs Guardian on the PC that will be looked after.%n%nAt 
 
 [Files]
 Source: "..\target\release\guardian-agent.exe"; DestDir: "{app}"; Flags: ignoreversion restartreplace
+Source: "..\assets\guardian.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 Filename: "{app}\guardian-agent.exe"; Parameters: "install"; Flags: runhidden waituntilterminated; StatusMsg: "Setting up Guardian..."
