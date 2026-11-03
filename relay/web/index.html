@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guardian Viewer</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --text:#e7e9ee; --muted:#8a90a0; --accent:#4f8cff; --bad:#ff5d5d; --warn:#f2a33a; --good:#3ecf7a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px system-ui, sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 16px; background:var(--panel); }
+  header h1 { font-size:16px; margin:0 12px 0 0; }
+  input, select, button, textarea { font:inherit; padding:7px 10px; border-radius:6px; border:1px solid #2a2f3a; background:#0f1115; color:var(--text); }
+  button { background:var(--accent); border:none; cursor:pointer; }
+  button.secondary { background:#2a2f3a; }
+  button.on { background:var(--warn); color:#000; }
+  button.good { background:var(--good); color:#000; }
+  button.bad { background:var(--bad); color:#000; }
+  label.remember { color:var(--muted); font-size:13px; display:flex; gap:4px; align-items:center; }
+  #status { color:var(--muted); margin-left:auto; }
+  #status.bad { color:var(--bad); }
+  #inbox { font-size:13px; color:var(--muted); }
+  #inbox.on { color:var(--good); }
+  main { padding:16px; display:flex; justify-content:center; }
+  #screen { max-width:100%; max-height:calc(100vh - 90px); background:#000; border-radius:6px; display:none; outline:none; }
+  #screen.control { cursor:crosshair; box-shadow:0 0 0 2px var(--warn); }
+  .live { display:none; }
+  dialog { background:var(--panel); color:var(--text); border:none; border-radius:10px; width:min(440px, calc(100% - 32px)); }
+  dialog::backdrop { background:#0008; }
+  dialog h3 { margin-top:0; }
+  .muted { color:var(--muted); }
+  .row { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap; }
+  .appname { font-size:20px; font-weight:600; margin:4px 0; word-break:break-all; }
+  .path { font-size:12px; color:var(--muted); word-break:break-all; }
+  textarea { width:100%; }
+  h4 { margin:16px 0 6px; }
+  label.chk { display:flex; gap:6px; align-items:center; margin-top:8px; }
+  .day { display:flex; gap:8px; align-items:center; margin-top:6px; }
+  .day span { width:40px; color:var(--muted); }
+  .day input { flex:1; min-width:0; }
+  #ruledlg { max-height:90vh; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--panel); padding:8px 14px; border-radius:6px; display:none; max-width:calc(100% - 32px); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Guardian</h1>
+  <span class="pre"><input id="devid" placeholder="Device ID" inputmode="numeric" maxlength="9" size="10"></span>
+  <span class="pre"><input id="code" placeholder="Pairing code" type="password" size="14"></span>
+  <label class="remember pre"><input type="checkbox" id="remember"> Remember on this device</label>
+  <button id="connect" class="pre">Connect</button>
+  <select id="monitors" class="live"></select>
+  <button id="control" class="live secondary" title="Off = view only, so you can't click by accident">Take control</button>
+  <button id="rules" class="live secondary">Rules</button>
+  <button id="sendclip" class="live secondary">Send my clipboard</button>
+  <button id="disconnect" class="live secondary">Disconnect</button>
+  <span id="inbox">Requests: off</span>
+  <span id="status">Not connected</span>
+</header>
+<main><canvas id="screen" tabindex="0"></canvas></main>
+<div id="toast"></div>
+
+<dialog id="reqdlg">
+  <h3>Access request</h3>
+  <div class="muted" id="reqkind">He's trying to open:</div>
+  <div class="appname" id="reqapp"></div>
+  <div class="path" id="reqpath"></div>
+  <div class="muted" id="reqmore" style="margin-top:8px"></div>
+  <div class="row">
+    <button class="bad" data-d="Deny">Deny</button>
+    <button class="secondary" data-d="Temporary">Temporary Access</button>
+    <button class="good" data-d="Approve">Approve</button>
+  </div>
+</dialog>
+
+<dialog id="ruledlg">
+  <form method="dialog">
+    <h3>Rules</h3>
+    <p class="muted" style="margin-top:0">One per line. To move something, just add it to the other list.
+      While you're controlling, all of this is paused for you.</p>
+    <h4>Apps</h4>
+    <p class="muted" style="font-size:13px;margin-top:0">An app folder (e.g. <code>C:\Program Files (x86)\Steam</code>) covers everything in it.
+      A program name (e.g. <code>steam.exe</code>) works too.</p>
+    <label>Approved</label><textarea id="allowlist" rows="4"></textarea>
+    <label>Denied</label><textarea id="blocklist" rows="4"></textarea>
+    <label class="chk"><input type="checkbox" id="askunknown"> Ask us about any other app</label>
+    <h4>Websites</h4>
+    <p class="muted" style="font-size:13px;margin-top:0">e.g. <code>youtube.com</code> (covers all of YouTube).</p>
+    <label>Approved</label><textarea id="allowsites" rows="4"></textarea>
+    <label>Denied</label><textarea id="blocksites" rows="4"></textarea>
+    <label class="chk"><input type="checkbox" id="askunknownsites"> Ask us about any other website</label>
+    <h4>Screen time</h4>
+    <label class="chk"><input type="checkbox" id="schedon"> Only allow the PC at these times (locks outside them)</label>
+    <div id="days"></div>
+    <p class="muted" style="font-size:13px">Like <code>07:30-08:15, 16:00-20:00</code>. Leave a day empty to keep the PC locked that day.</p>
+    <div class="row">
+      <button value="cancel" class="secondary">Cancel</button>
+      <button value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const canvas = $('screen'), ctx = canvas.getContext('2d');
+let ws = null, inbox = null, control = false, lastMove = 0;
+let policy = { blocked_apps: [], allowed_apps: [], ask_unknown: true };
+let queue = []; // pending requests, oldest first
+
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} },
+};
+$('devid').value = store.get('guardian.id');
+if (store.get('guardian.code')) { $('code').value = store.get('guardian.code'); $('remember').checked = true; }
+
+function status(text, bad = false) { $('status').textContent = text; $('status').className = bad ? 'bad' : ''; }
+function toast(text) { const t = $('toast'); t.textContent = text; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2500); }
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+function sendInbox(obj) { if (inbox && inbox.readyState === 1) inbox.send(JSON.stringify(obj)); }
+const wsUrl = (path, id) => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${path}?id=${id}`;
+
+function connected(on) {
+  document.querySelectorAll('.pre').forEach(e => e.style.display = on ? 'none' : '');
+  document.querySelectorAll('.live').forEach(e => e.style.display = on ? 'inline-block' : 'none');
+  canvas.style.display = on ? 'block' : 'none';
+  if (!on) setControl(false);
+}
+function setControl(on) {
+  control = on;
+  $('control').textContent = on ? 'Controlling (click to stop)' : 'Take control';
+  $('control').className = 'live ' + (on ? 'on' : 'secondary');
+  canvas.classList.toggle('control', on);
+  send({ type: 'control', on });
+  if (ws && ws.readyState === 1) toast(on ? 'Restrictions paused while you control' : 'Control handed back, restrictions active');
+  if (on) canvas.focus();
+}
+
+// ---------- Approval inbox (stays connected even when not viewing) ----------
+function startInbox(id, code) {
+  if (inbox && inbox.readyState <= 1) return;
+  inbox = new WebSocket(wsUrl('/ws/parent', id));
+  inbox.onclose = () => {
+    $('inbox').textContent = 'Requests: reconnecting…'; $('inbox').className = '';
+    setTimeout(() => startInbox(id, code), 5000);
+  };
+  inbox.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'auth_required') sendInbox({ type: 'auth', code });
+    if (m.type === 'auth_failed') { inbox.onclose = null; inbox.close(); $('inbox').textContent = 'Requests: wrong code'; }
+    if (m.type === 'parent_hello') {
+      $('inbox').textContent = 'Requests: on'; $('inbox').className = 'on';
+      policy = m.policy; queue = m.pending; showNext();
+    }
+    if (m.type === 'request') {
+      if (!queue.some(r => r.app === m.request.app)) queue.push(m.request);
+      notify(m.request); showNext();
+    }
+    if (m.type === 'resolved') {
+      queue = queue.filter(r => r.app !== m.app);
+      if ($('reqdlg').dataset.app === m.app) { $('reqdlg').close(); toast(`${m.app}: ${m.decision}`); }
+      showNext();
+    }
+  };
+}
+function showNext() {
+  const d = $('reqdlg');
+  if (d.open || !queue.length) return;
+  const r = queue[0];
+  d.dataset.app = r.app;
+  $('reqkind').textContent = r.kind === 'site' ? 'He\'s trying to visit this website:' : 'He\'s trying to open this app:';
+  $('reqapp').textContent = r.name || r.app;
+  $('reqpath').textContent = r.path;
+  $('reqmore').textContent = queue.length > 1 ? `${queue.length - 1} more waiting` : '';
+  d.showModal();
+}
+document.querySelectorAll('#reqdlg [data-d]').forEach(b => b.onclick = () => {
+  const app = $('reqdlg').dataset.app;
+  sendInbox({ type: 'decide', app, decision: b.dataset.d });
+  $('reqdlg').close();
+});
+$('reqdlg').addEventListener('cancel', e => e.preventDefault()); // must pick a button
+function notify(r) {
+  if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification('Guardian: access request', { body: `He wants to ${r.kind === 'site' ? 'visit' : 'open'} ${r.name || r.app}`, tag: r.app }); } catch {}
+}
+
+// ---------- Live viewer ----------
+$('connect').onclick = () => {
+  const id = $('devid').value.trim(), code = $('code').value.trim();
+  if (!/^\d{9}$/.test(id)) return status('Device ID must be 9 digits', true);
+  store.set('guardian.id', id);
+  store.set('guardian.code', $('remember').checked ? code : '');
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  startInbox(id, code);
+  ws = new WebSocket(wsUrl('/ws/controller', id));
+  ws.binaryType = 'blob';
+  status('Connecting…');
+  ws.onopen = () => status('Waiting for device…');
+  ws.onclose = () => { status('Disconnected'); connected(false); };
+  ws.onmessage = async ev => {
+    if (typeof ev.data !== 'string') {
+      const bmp = await createImageBitmap(ev.data.slice(1, ev.data.size, 'image/jpeg'));
+      if (canvas.width !== bmp.width || canvas.height !== bmp.height) { canvas.width = bmp.width; canvas.height = bmp.height; }
+      ctx.drawImage(bmp, 0, 0); bmp.close();
+      return;
+    }
+    const m = JSON.parse(ev.data);
+    if (m.type === 'auth_required') send({ type: 'auth', code });
+    if (m.type === 'auth_failed') { status(m.reason === 'locked' ? 'Too many wrong codes, locked 5 min' : 'Wrong pairing code', true); ws.close(); }
+    if (m.type === 'hello') {
+      const sel = $('monitors'); sel.innerHTML = '';
+      m.monitors.forEach(mon => sel.add(new Option(`Screen ${mon.index + 1}${mon.primary ? ' (main)' : ''} · ${mon.width}×${mon.height}`, mon.index)));
+      policy = m.policy || policy;
+      status('Live'); connected(true);
+    }
+    if (m.type === 'policy') policy = m.policy;
+    if (m.type === 'clipboard') {
+      try { await navigator.clipboard.writeText(m.text); toast('Copied their clipboard to yours'); }
+      catch { toast('Their clipboard: ' + m.text.slice(0, 80)); }
+    }
+  };
+};
+// Remembered on this device: start the request inbox as soon as the page opens.
+if (store.get('guardian.id') && store.get('guardian.code')) startInbox(store.get('guardian.id'), store.get('guardian.code'));
+
+$('monitors').onchange = e => send({ type: 'select_monitor', index: +e.target.value });
+$('disconnect').onclick = () => ws && ws.close();
+$('control').onclick = () => setControl(!control);
+const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+const DAYNAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+$('days').innerHTML = DAYS.map((d, i) => `<div class="day"><span>${DAYNAMES[i]}</span><input id="day-${d}" placeholder="e.g. 16:00-20:00"></div>`).join('');
+let shown = null; // what the Rules window showed when opened
+$('rules').onclick = () => {
+  shown = { allowed: [...policy.allowed_apps], blocked: [...policy.blocked_apps],
+            allowedSites: [...(policy.allowed_sites || [])], blockedSites: [...(policy.blocked_sites || [])] };
+  $('allowlist').value = policy.allowed_apps.join('\n');
+  $('blocklist').value = policy.blocked_apps.join('\n');
+  $('askunknown').checked = policy.ask_unknown;
+  $('allowsites').value = (policy.allowed_sites || []).join('\n');
+  $('blocksites').value = (policy.blocked_sites || []).join('\n');
+  $('askunknownsites').checked = policy.ask_unknown_sites !== false;
+  const sch = policy.schedule || { enabled: false, days: {} };
+  $('schedon').checked = sch.enabled;
+  DAYS.forEach(d => $('day-' + d).value = (sch.days[d] || []).join(', '));
+  $('ruledlg').showModal();
+};
+// An item you just added to one list is taken off the other one.
+function moveResolve(allow, block, oldAllow, oldBlock) {
+  const nA = allow.filter(a => !oldAllow.includes(a)), nB = block.filter(a => !oldBlock.includes(a));
+  block = block.filter(a => !nA.includes(a) || nB.includes(a));
+  allow = allow.filter(a => !block.includes(a));
+  return [allow, block];
+}
+$('ruledlg').addEventListener('close', () => {
+  if ($('ruledlg').returnValue !== 'save') return;
+  const lines = id => [...new Set($(id).value.split('\n').map(s => s.trim()).filter(Boolean))];
+  const lc = l => l.map(s => s.toLowerCase());
+  const appKey = a => (a.includes('\\') || a.includes('/')) ? a.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() : a.toLowerCase();
+  const siteKey = a => a.toLowerCase().replace(/^https?:\/\//, '').split(/[\/?#:]/)[0].replace(/^www\./, '');
+  const [allowed, blocked] = moveResolve(lines('allowlist').map(appKey), lines('blocklist').map(appKey), lc(shown.allowed), lc(shown.blocked));
+  const [aSites, bSites] = moveResolve(lines('allowsites').map(siteKey), lines('blocksites').map(siteKey), shown.allowedSites, shown.blockedSites);
+  const days = {};
+  DAYS.forEach(d => { const w = $('day-' + d).value.split(',').map(s => s.trim()).filter(Boolean); if (w.length) days[d] = w; });
+  send({ type: 'set_policy', policy: {
+    allowed_apps: allowed, blocked_apps: blocked, ask_unknown: $('askunknown').checked,
+    allowed_sites: aSites, blocked_sites: bSites, ask_unknown_sites: $('askunknownsites').checked,
+    schedule: { enabled: $('schedon').checked, days },
+  }});
+  toast('Saved');
+});
+$('sendclip').onclick = async () => {
+  try { const t = await navigator.clipboard.readText(); send({ type: 'clipboard', text: t }); toast('Sent your clipboard'); }
+  catch { toast('Browser blocked clipboard access'); }
+};
+
+// ---------- Remote input (only while "Take control" is on) ----------
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+}
+const BUTTONS = ['left', 'middle', 'right'];
+canvas.addEventListener('mousemove', e => {
+  if (!control) return;
+  const now = performance.now(); if (now - lastMove < 16) return; lastMove = now;
+  send({ type: 'mouse_move', ...pos(e) });
+});
+canvas.addEventListener('mousedown', e => {
+  if (!control) return; e.preventDefault(); canvas.focus();
+  send({ type: 'mouse_move', ...pos(e) });
+  send({ type: 'mouse_button', button: BUTTONS[e.button] || 'left', down: true });
+});
+canvas.addEventListener('mouseup', e => { if (control) send({ type: 'mouse_button', button: BUTTONS[e.button] || 'left', down: false }); });
+canvas.addEventListener('contextmenu', e => { if (control) e.preventDefault(); });
+canvas.addEventListener('wheel', e => {
+  if (!control) return; e.preventDefault();
+  send({ type: 'wheel', dx: Math.sign(e.deltaX), dy: Math.sign(e.deltaY) });
+}, { passive: false });
+for (const t of ['keydown', 'keyup']) {
+  canvas.addEventListener(t, e => {
+    if (!control) return; e.preventDefault();
+    if (t === 'keydown' && e.repeat && e.key.length > 1 && !['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
+    send({ type: 'key', key: e.key, down: t === 'keydown' });
+  });
+}
+canvas.addEventListener('blur', () => { if (control) ['Shift','Control','Alt','Meta'].forEach(k => send({ type: 'key', key: k, down: false })); });
+</script>
+</body>
+</html>
