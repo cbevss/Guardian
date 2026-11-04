@@ -8,7 +8,7 @@ websites he can use and when.
 Download both installers from the latest GitHub Actions run (**Actions** tab >
 newest run > **Guardian-installers**) or from a release.
 
-### 1. Your PC (and your mum's): `Guardian-Parent-PC-Setup.exe`
+### 1. Your PC : `Guardian-Parent-PC-Setup.exe`
 - Installs the viewer and the home relay, which starts quietly when you sign in.
 - Puts a **Guardian** shortcut on the desktop.
 - Allows Guardian through Windows Firewall on **private** networks. Make sure your
