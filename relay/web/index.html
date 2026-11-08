@@ -3,110 +3,763 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guardian Viewer</title>
+<title>Guardian</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <style>
-  :root { --bg:#0f1115; --panel:#181b22; --text:#e7e9ee; --muted:#8a90a0; --accent:#4f8cff; --bad:#ff5d5d; --warn:#f2a33a; --good:#3ecf7a; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px system-ui, sans-serif; }
-  header { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 16px; background:var(--panel); }
-  header h1 { font-size:16px; margin:0 12px 0 0; }
-  input, select, button, textarea { font:inherit; padding:7px 10px; border-radius:6px; border:1px solid #2a2f3a; background:#0f1115; color:var(--text); }
-  button { background:var(--accent); border:none; cursor:pointer; }
-  button.secondary { background:#2a2f3a; }
-  button.on { background:var(--warn); color:#000; }
-  button.good { background:var(--good); color:#000; }
-  button.bad { background:var(--bad); color:#000; }
-  label.remember { color:var(--muted); font-size:13px; display:flex; gap:4px; align-items:center; }
-  #status { color:var(--muted); margin-left:auto; }
-  #status.bad { color:var(--bad); }
-  #inbox { font-size:13px; color:var(--muted); }
-  #inbox.on { color:var(--good); }
-  main { padding:16px; display:flex; justify-content:center; }
-  #screen { max-width:100%; max-height:calc(100vh - 90px); background:#000; border-radius:6px; display:none; outline:none; }
-  #screen.control { cursor:crosshair; box-shadow:0 0 0 2px var(--warn); }
-  .live { display:none; }
-  dialog { background:var(--panel); color:var(--text); border:none; border-radius:10px; width:min(440px, calc(100% - 32px)); }
-  dialog::backdrop { background:#0008; }
-  dialog h3 { margin-top:0; }
-  .muted { color:var(--muted); }
-  .row { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap; }
-  .appname { font-size:20px; font-weight:600; margin:4px 0; word-break:break-all; }
-  .path { font-size:12px; color:var(--muted); word-break:break-all; }
-  textarea { width:100%; }
-  h4 { margin:16px 0 6px; }
-  label.chk { display:flex; gap:6px; align-items:center; margin-top:8px; }
-  .day { display:flex; gap:8px; align-items:center; margin-top:6px; }
-  .day span { width:40px; color:var(--muted); }
-  .day input { flex:1; min-width:0; }
-  #ruledlg { max-height:90vh; }
-  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--panel); padding:8px 14px; border-radius:6px; display:none; max-width:calc(100% - 32px); }
+/* ── Tokens ─────────────────────────────────────────────────── */
+:root {
+  --bg:       #0b0d12;
+  --surface:  #12151d;
+  --panel:    #181c27;
+  --border:   #1e2333;
+  --border2:  #252c3f;
+  --fg:       #e4e8f4;
+  --muted:    #6b7592;
+  --accent:   #4f7cff;
+  --accent-h: #3d6be8;
+  --good:     #34d17a;
+  --warn:     #f5a623;
+  --bad:      #ff5555;
+  --shield:   #2353e8;
+  --radius:   10px;
+  --sidebar-w: 220px;
+  --hdr-h:    56px;
+  font-size: 14px;
+  color-scheme: dark;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+}
+.brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+  color: var(--fg);
+}
+.brand-ver {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.nav {
+  flex: 1;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+.nav-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 8px 4px;
+}
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  transition: background .15s, color .15s;
+  position: relative;
+}
+.nav-btn:hover { background: var(--border); color: var(--fg); }
+.nav-btn.active { background: rgba(79,124,255,.14); color: var(--accent); }
+.nav-btn svg { flex-shrink: 0; opacity: .7; }
+.nav-btn.active svg { opacity: 1; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--bad);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: flex; align-items:center; justify-content:center;
+  padding: 0 5px;
+}
+.nav-badge[hidden] { display: none !important; }
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.conn-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: background .3s;
+}
+.dot.live { background: var(--good); box-shadow: 0 0 6px var(--good); }
+.dot.bad  { background: var(--bad); }
+
+/* ── Main area ──────────────────────────────────────────────── */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Top bar */
+#topbar {
+  height: var(--hdr-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+#topbar-title {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+}
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, transform .1s, opacity .15s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-secondary { background: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--border2); }
+.btn-good { background: rgba(52,209,122,.15); color: var(--good); border: 1px solid rgba(52,209,122,.25); }
+.btn-good:hover { background: rgba(52,209,122,.25); }
+.btn-warn { background: rgba(245,166,35,.15); color: var(--warn); border: 1px solid rgba(245,166,35,.25); }
+.btn-warn:hover { background: rgba(245,166,35,.25); }
+.btn-bad { background: rgba(255,85,85,.15); color: var(--bad); border: 1px solid rgba(255,85,85,.25); }
+.btn-bad:hover { background: rgba(255,85,85,.25); }
+.btn-ghost { background: none; color: var(--muted); border: 1px solid var(--border2); }
+.btn-ghost:hover { color: var(--fg); border-color: var(--border2); background: var(--border); }
+.btn[disabled] { opacity: .4; cursor: default; pointer-events: none; }
+
+/* Input */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+input[type=text], input[type=password], input[type=number], textarea, select {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  color: var(--fg);
+  font: inherit;
+  font-size: 13.5px;
+  padding: 8px 11px;
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+textarea { resize: vertical; }
+input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+/* ── Pages ──────────────────────────────────────────────────── */
+.page {
+  flex: 1;
+  overflow: hidden;
+  display: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .2s, transform .2s;
+}
+.page.active {
+  display: flex;
+  flex-direction: column;
+}
+.page.shown {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Connect page ───────────────────────────────────────────── */
+#page-connect {
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  overflow-y: auto;
+  padding: 24px;
+}
+.connect-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px 40px;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.connect-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.connect-fields { display: flex; flex-direction: column; gap: 14px; }
+.connect-row { display: flex; gap: 10px; align-items: flex-end; }
+.connect-row .field { flex: 1; }
+.connect-remember {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--muted); cursor: pointer;
+}
+.connect-remember input { margin: 0; }
+
+/* ── View page ──────────────────────────────────────────────── */
+#page-view {
+  flex-direction: column;
+}
+#screen-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+}
+#screen {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  outline: none;
+}
+#screen.control { cursor: crosshair; }
+#control-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(245,166,35,.92);
+  color: #000;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 20px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s;
+  white-space: nowrap;
+}
+#control-banner.show { opacity: 1; }
+
+/* ── Requests page ──────────────────────────────────────────── */
+#page-requests {
+  overflow-y: auto;
+  padding: 24px;
+}
+.requests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+.req-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: cardIn .22s ease both;
+}
+@keyframes cardIn {
+  from { opacity:0; transform: translateY(8px) scale(.98); }
+  to   { opacity:1; transform: none; }
+}
+.req-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.req-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+.req-icon.app  { background: rgba(79,124,255,.15); }
+.req-icon.site { background: rgba(52,209,122,.15); }
+.req-card-info { flex: 1; min-width: 0; }
+.req-name {
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-all;
+  line-height: 1.3;
+}
+.req-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+.req-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+.req-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.req-actions .btn {
+  flex: 1;
+  justify-content: center;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.requests-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  color: var(--muted);
+  font-size: 14px;
+  min-height: 200px;
+}
+.requests-empty svg { opacity: .3; }
+
+/* ── Rules page ─────────────────────────────────────────────── */
+#page-rules {
+  overflow-y: auto;
+  padding: 24px;
+}
+.rules-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  max-width: 900px;
+}
+@media (max-width: 700px) { .rules-grid { grid-template-columns: 1fr; } }
+.rule-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rule-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+}
+.rule-card textarea {
+  min-height: 110px;
+  font-size: 12.5px;
+}
+.rule-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.rule-hint code {
+  background: var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.toggle-row input { flex-shrink: 0; }
+
+/* ── Schedule ───────────────────────────────────────────────── */
+.schedule-card {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 900px;
+}
+.schedule-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+@media (max-width: 600px) { .days-grid { grid-template-columns: 1fr; } }
+.day-col { display: flex; flex-direction: column; gap: 5px; }
+.day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.day-col input { padding: 6px 8px; font-size: 12px; }
+
+/* ── Toast ──────────────────────────────────────────────────── */
+#toast-wrap {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--fg);
+  font-size: 13px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  animation: toastIn .2s ease both;
+  pointer-events: none;
+}
+@keyframes toastIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes toastOut { to { opacity:0; transform: translateY(8px); } }
+.toast.out { animation: toastOut .2s ease both; }
+
+/* ── Modal ──────────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.modal-backdrop.show { opacity: 1; }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  padding: 28px;
+  width: 100%;
+  max-width: 400px;
+  transform: scale(.96) translateY(8px);
+  transition: transform .22s;
+}
+.modal-backdrop.show .modal { transform: none; }
+.modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+.modal-name {
+  font-size: 22px;
+  font-weight: 700;
+  word-break: break-all;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.modal-path {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.modal-actions { display: flex; gap: 8px; }
+.modal-actions .btn { flex: 1; justify-content: center; }
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Guardian</h1>
-  <span class="pre"><input id="devid" placeholder="Device ID" inputmode="numeric" maxlength="9" size="10"></span>
-  <span class="pre"><input id="code" placeholder="Pairing code" type="password" size="14"></span>
-  <label class="remember pre"><input type="checkbox" id="remember"> Remember on this device</label>
-  <button id="connect" class="pre">Connect</button>
-  <select id="monitors" class="live"></select>
-  <button id="control" class="live secondary" title="Off = view only, so you can't click by accident">Take control</button>
-  <button id="rules" class="live secondary">Rules</button>
-  <button id="sendclip" class="live secondary">Send my clipboard</button>
-  <button id="disconnect" class="live secondary">Disconnect</button>
-  <span id="inbox">Requests: off</span>
-  <span id="status">Not connected</span>
-</header>
-<main><canvas id="screen" tabindex="0"></canvas></main>
-<div id="toast"></div>
 
-<dialog id="reqdlg">
-  <h3>Access request</h3>
-  <div class="muted" id="reqkind">He's trying to open:</div>
-  <div class="appname" id="reqapp"></div>
-  <div class="path" id="reqpath"></div>
-  <div class="muted" id="reqmore" style="margin-top:8px"></div>
-  <div class="row">
-    <button class="bad" data-d="Deny">Deny</button>
-    <button class="secondary" data-d="Temporary">Temporary Access</button>
-    <button class="good" data-d="Approve">Approve</button>
-  </div>
-</dialog>
-
-<dialog id="ruledlg">
-  <form method="dialog">
-    <h3>Rules</h3>
-    <p class="muted" style="margin-top:0">One per line. To move something, just add it to the other list.
-      While you're controlling, all of this is paused for you.</p>
-    <h4>Apps</h4>
-    <p class="muted" style="font-size:13px;margin-top:0">An app folder (e.g. <code>C:\Program Files (x86)\Steam</code>) covers everything in it.
-      A program name (e.g. <code>steam.exe</code>) works too.</p>
-    <label>Approved</label><textarea id="allowlist" rows="4"></textarea>
-    <label>Denied</label><textarea id="blocklist" rows="4"></textarea>
-    <label class="chk"><input type="checkbox" id="askunknown"> Ask us about any other app</label>
-    <h4>Websites</h4>
-    <p class="muted" style="font-size:13px;margin-top:0">e.g. <code>youtube.com</code> (covers all of YouTube).</p>
-    <label>Approved</label><textarea id="allowsites" rows="4"></textarea>
-    <label>Denied</label><textarea id="blocksites" rows="4"></textarea>
-    <label class="chk"><input type="checkbox" id="askunknownsites"> Ask us about any other website</label>
-    <h4>Screen time</h4>
-    <label class="chk"><input type="checkbox" id="schedon"> Only allow the PC at these times (locks outside them)</label>
-    <div id="days"></div>
-    <p class="muted" style="font-size:13px">Like <code>07:30-08:15, 16:00-20:00</code>. Leave a day empty to keep the PC locked that day.</p>
-    <div class="row">
-      <button value="cancel" class="secondary">Cancel</button>
-      <button value="save">Save</button>
+<!-- ── Sidebar ─────────────────────────────────────────────── -->
+<nav id="sidebar">
+  <div class="brand">
+    <svg class="brand-icon" viewBox="0 0 32 32" fill="none">
+      <defs>
+        <linearGradient id="bsg" x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#4f7cff"/>
+          <stop offset="100%" stop-color="#2353e8"/>
+        </linearGradient>
+      </defs>
+      <path d="M16 2 L28 7 L28 16 C28 22.5 22.5 27.5 16 30 C9.5 27.5 4 22.5 4 16 L4 7 Z" fill="url(#bsg)"/>
+      <rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="white" opacity=".95"/>
+      <path d="M13 16 L13 13 C13 10.8 19 10.8 19 13 L19 16" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".95"/>
+      <circle cx="16" cy="19.5" r="1.2" fill="#2353e8"/>
+      <rect x="15.1" y="19.5" width="1.8" height="2.5" rx="0.9" fill="#2353e8"/>
+    </svg>
+    <div>
+      <div class="brand-name">Guardian</div>
+      <div class="brand-ver" id="sidebar-ver">Not connected</div>
     </div>
-  </form>
-</dialog>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" data-page="connect" id="nav-connect">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12h3m14 0h3M12 2v3m0 14v3m-7-14l2 2M17 7l2-2M5 19l2-2m10 0l2 2"/></svg>
+      Connect
+    </button>
+    <button class="nav-btn" data-page="view" id="nav-view" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg>
+      Screen
+    </button>
+    <button class="nav-btn" data-page="requests" id="nav-requests" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Requests
+      <span class="nav-badge" id="req-badge" hidden>0</span>
+    </button>
+    <button class="nav-btn" data-page="rules" id="nav-rules" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Rules
+    </button>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="conn-status">
+      <div class="dot" id="dot"></div>
+      <span id="conn-label">Disconnected</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main ────────────────────────────────────────────────── -->
+<div id="main">
+  <div id="topbar">
+    <span id="topbar-title">Connect to device</span>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+
+  <!-- Connect page -->
+  <div class="page active" id="page-connect">
+    <div class="connect-card">
+      <h2>
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+          <path d="M16 2 L28 7 L28 16 C28 22.5 22.5 27.5 16 30 C9.5 27.5 4 22.5 4 16 L4 7 Z" fill="var(--accent)"/>
+          <rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="white" opacity=".9"/>
+          <path d="M13 16 L13 13 C13 10.8 19 10.8 19 13 L19 16" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <circle cx="16" cy="19.5" r="1.2" fill="var(--accent)"/>
+          <rect x="15.1" y="19.5" width="1.8" height="2.5" rx="0.9" fill="var(--accent)"/>
+        </svg>
+        Connect to device
+      </h2>
+      <div class="connect-fields">
+        <div class="field">
+          <label>Device ID</label>
+          <input id="devid" type="text" placeholder="123456789" inputmode="numeric" maxlength="9">
+        </div>
+        <div class="field">
+          <label>Pairing code</label>
+          <input id="code" type="password" placeholder="············">
+        </div>
+        <label class="connect-remember">
+          <input type="checkbox" id="remember">
+          Remember on this device
+        </label>
+        <button class="btn btn-primary" id="connect" style="justify-content:center;padding:10px;">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View page -->
+  <div class="page" id="page-view">
+    <div id="screen-wrap">
+      <canvas id="screen" tabindex="0"></canvas>
+      <div id="control-banner">🟡 Controlling — restrictions paused</div>
+    </div>
+  </div>
+
+  <!-- Requests page -->
+  <div class="page" id="page-requests">
+    <div id="req-list" class="requests-grid"></div>
+  </div>
+
+  <!-- Rules page -->
+  <div class="page" id="page-rules">
+    <div class="rules-grid">
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Approved apps
+        </h3>
+        <div class="rule-hint">One app folder per line, e.g. <code>C:\Program Files\Steam</code>. Covers everything inside.</div>
+        <textarea id="allowlist" rows="5"></textarea>
+      </div>
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Blocked apps
+        </h3>
+        <div class="rule-hint">Same format. Moving an app to Approved removes it from here automatically.</div>
+        <textarea id="blocklist" rows="5"></textarea>
+      </div>
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Approved websites
+        </h3>
+        <div class="rule-hint">e.g. <code>youtube.com</code> — covers all subdomains automatically.</div>
+        <textarea id="allowsites" rows="5"></textarea>
+      </div>
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Blocked websites
+        </h3>
+        <div class="rule-hint">Same format as approved. Cloudflare Families also filters adult content.</div>
+        <textarea id="blocksites" rows="5"></textarea>
+      </div>
+      <div class="rule-card" style="grid-column:1/-1">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><path d="M12 2v4m0 12v4m8-10h-4M8 12H4m11.3-6.3l-2.8 2.8M9.5 14.5l-2.8 2.8m9.1 0l-2.8-2.8M9.5 9.5 6.7 6.7"/></svg>
+          Ask about unknown
+        </h3>
+        <label class="toggle-row">
+          <input type="checkbox" id="askunknown">
+          Send us a request when he tries to open an app that's not in either list
+        </label>
+        <label class="toggle-row" style="margin-top:8px">
+          <input type="checkbox" id="askunknownsites">
+          Send us a request when he tries to visit a website that's not in either list
+        </label>
+      </div>
+      <div class="schedule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Screen time
+        </h3>
+        <label class="toggle-row">
+          <input type="checkbox" id="schedon">
+          Lock the PC outside these hours
+        </label>
+        <div class="days-grid" id="days"></div>
+        <div class="rule-hint" style="margin-top:10px">e.g. <code>16:00-20:00</code> or <code>07:30-08:30, 15:00-20:00</code>. Leave a day empty to keep it locked all day.</div>
+      </div>
+      <div style="grid-column:1/-1; display:flex; gap:10px; justify-content:flex-end; padding-bottom:8px;">
+        <button class="btn btn-secondary" id="rules-cancel">Cancel</button>
+        <button class="btn btn-primary" id="rules-save">Save rules</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Request modal ─────────────────────────────────────────── -->
+<div class="modal-backdrop" id="req-modal" style="display:none">
+  <div class="modal">
+    <h2 id="modal-title">Access request</h2>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="modal-name" id="modal-name"></div>
+    <div class="modal-path" id="modal-path"></div>
+    <div class="modal-actions">
+      <button class="btn btn-bad" id="modal-deny">Deny</button>
+      <button class="btn btn-warn" id="modal-temp">Temporary Access</button>
+      <button class="btn btn-good" id="modal-approve">Approve</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
 
 <script>
 const $ = id => document.getElementById(id);
 const canvas = $('screen'), ctx = canvas.getContext('2d');
 let ws = null, inbox = null, control = false, lastMove = 0;
-let policy = { blocked_apps: [], allowed_apps: [], ask_unknown: true };
-let queue = []; // pending requests, oldest first
+let policy = { blocked_apps:[], allowed_apps:[], ask_unknown:true, ask_unknown_sites:true };
+let queue = [];
+let shownPolicy = null;
 
+// ── Storage ──────────────────────────────────────────────────
 const store = {
   get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
   set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} },
@@ -114,196 +767,358 @@ const store = {
 $('devid').value = store.get('guardian.id');
 if (store.get('guardian.code')) { $('code').value = store.get('guardian.code'); $('remember').checked = true; }
 
-function status(text, bad = false) { $('status').textContent = text; $('status').className = bad ? 'bad' : ''; }
-function toast(text) { const t = $('toast'); t.textContent = text; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2500); }
-function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
-function sendInbox(obj) { if (inbox && inbox.readyState === 1) inbox.send(JSON.stringify(obj)); }
-const wsUrl = (path, id) => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${path}?id=${id}`;
+// ── Page routing ─────────────────────────────────────────────
+const pages = {};
+document.querySelectorAll('.page').forEach(p => pages[p.id.replace('page-','')] = p);
+let currentPage = 'connect';
 
-function connected(on) {
-  document.querySelectorAll('.pre').forEach(e => e.style.display = on ? 'none' : '');
-  document.querySelectorAll('.live').forEach(e => e.style.display = on ? 'inline-block' : 'none');
-  canvas.style.display = on ? 'block' : 'none';
-  if (!on) setControl(false);
+function goTo(name) {
+  const old = pages[currentPage], next = pages[name];
+  if (!next) return;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === name));
+  if (old) { old.classList.remove('shown'); setTimeout(() => { old.classList.remove('active'); }, 200); }
+  next.classList.add('active');
+  requestAnimationFrame(() => next.classList.add('shown'));
+  currentPage = name;
+
+  const titles = { connect: 'Connect to device', view: 'Screen', requests: 'Requests', rules: 'Rules & restrictions' };
+  $('topbar-title').textContent = titles[name] || 'Guardian';
+  renderTopbarActions(name);
+}
+document.querySelectorAll('.nav-btn[data-page]').forEach(b => {
+  b.addEventListener('click', () => { if (!b.disabled) goTo(b.dataset.page); });
+});
+setTimeout(() => pages['connect'].classList.add('shown'), 50);
+
+function setNavEnabled(on) {
+  ['view','requests','rules'].forEach(id => {
+    const b = $('nav-' + id);
+    b.disabled = !on;
+  });
+}
+
+function renderTopbarActions(page) {
+  const bar = $('topbar-actions');
+  bar.innerHTML = '';
+  if (page === 'view' && ws) {
+    const monitors = document.createElement('select');
+    monitors.id = 'monitors';
+    monitors.style.cssText = 'font-size:12.5px;padding:5px 8px;';
+    bar.appendChild(monitors);
+    // restore options if any
+    document.querySelectorAll('#monitors option').forEach(o => monitors.add(o.cloneNode(true)));
+    monitors.onchange = e => send({ type: 'select_monitor', index: +e.target.value });
+
+    const ctrlBtn = document.createElement('button');
+    ctrlBtn.id = 'ctrl-btn';
+    ctrlBtn.className = 'btn ' + (control ? 'btn-warn' : 'btn-secondary');
+    ctrlBtn.textContent = control ? 'Stop controlling' : 'Take control';
+    ctrlBtn.onclick = () => setControl(!control);
+    bar.appendChild(ctrlBtn);
+
+    const clipBtn = document.createElement('button');
+    clipBtn.className = 'btn btn-ghost';
+    clipBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/></svg> Send clipboard';
+    clipBtn.onclick = sendClipboard;
+    bar.appendChild(clipBtn);
+
+    const discBtn = document.createElement('button');
+    discBtn.className = 'btn btn-bad';
+    discBtn.textContent = 'Disconnect';
+    discBtn.onclick = () => ws && ws.close();
+    bar.appendChild(discBtn);
+  }
+  if (page === 'requests') {
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'btn btn-ghost';
+    clearBtn.textContent = 'Show modal';
+    clearBtn.onclick = () => { if (queue.length) showModal(); };
+    bar.appendChild(clearBtn);
+  }
+}
+
+// ── Status helpers ───────────────────────────────────────────
+function setStatus(text, state) { // state: 'off'|'live'|'bad'
+  $('dot').className = 'dot' + (state === 'live' ? ' live' : state === 'bad' ? ' bad' : '');
+  $('conn-label').textContent = text;
+  $('sidebar-ver').textContent = text;
+}
+function toast(text, dur = 2600) {
+  const wrap = $('toast-wrap'), el = document.createElement('div');
+  el.className = 'toast'; el.textContent = text;
+  wrap.appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, dur);
+}
+function send(obj) { if (ws?.readyState === 1) ws.send(JSON.stringify(obj)); }
+function sendInbox(obj) { if (inbox?.readyState === 1) inbox.send(JSON.stringify(obj)); }
+const wsUrl = p => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${p}?id=${$('devid').value.trim()}`;
+
+// ── Connection ───────────────────────────────────────────────
+function onConnected(on) {
+  setNavEnabled(on);
+  if (!on) { setControl(false); setStatus('Disconnected', 'off'); goTo('connect'); }
 }
 function setControl(on) {
   control = on;
-  $('control').textContent = on ? 'Controlling (click to stop)' : 'Take control';
-  $('control').className = 'live ' + (on ? 'on' : 'secondary');
   canvas.classList.toggle('control', on);
+  $('control-banner').classList.toggle('show', on);
   send({ type: 'control', on });
-  if (ws && ws.readyState === 1) toast(on ? 'Restrictions paused while you control' : 'Control handed back, restrictions active');
+  renderTopbarActions('view');
+  if (ws?.readyState === 1) toast(on ? 'Restrictions paused — you have control' : 'Control returned, restrictions active');
   if (on) canvas.focus();
 }
 
-// ---------- Approval inbox (stays connected even when not viewing) ----------
-function startInbox(id, code) {
-  if (inbox && inbox.readyState <= 1) return;
-  inbox = new WebSocket(wsUrl('/ws/parent', id));
-  inbox.onclose = () => {
-    $('inbox').textContent = 'Requests: reconnecting…'; $('inbox').className = '';
-    setTimeout(() => startInbox(id, code), 5000);
-  };
-  inbox.onmessage = ev => {
-    const m = JSON.parse(ev.data);
-    if (m.type === 'auth_required') sendInbox({ type: 'auth', code });
-    if (m.type === 'auth_failed') { inbox.onclose = null; inbox.close(); $('inbox').textContent = 'Requests: wrong code'; }
-    if (m.type === 'parent_hello') {
-      $('inbox').textContent = 'Requests: on'; $('inbox').className = 'on';
-      policy = m.policy; queue = m.pending; showNext();
-    }
-    if (m.type === 'request') {
-      if (!queue.some(r => r.app === m.request.app)) queue.push(m.request);
-      notify(m.request); showNext();
-    }
-    if (m.type === 'resolved') {
-      queue = queue.filter(r => r.app !== m.app);
-      if ($('reqdlg').dataset.app === m.app) { $('reqdlg').close(); toast(`${m.app}: ${m.decision}`); }
-      showNext();
-    }
-  };
-}
-function showNext() {
-  const d = $('reqdlg');
-  if (d.open || !queue.length) return;
-  const r = queue[0];
-  d.dataset.app = r.app;
-  $('reqkind').textContent = r.kind === 'site' ? 'He\'s trying to visit this website:' : 'He\'s trying to open this app:';
-  $('reqapp').textContent = r.name || r.app;
-  $('reqpath').textContent = r.path;
-  $('reqmore').textContent = queue.length > 1 ? `${queue.length - 1} more waiting` : '';
-  d.showModal();
-}
-document.querySelectorAll('#reqdlg [data-d]').forEach(b => b.onclick = () => {
-  const app = $('reqdlg').dataset.app;
-  sendInbox({ type: 'decide', app, decision: b.dataset.d });
-  $('reqdlg').close();
-});
-$('reqdlg').addEventListener('cancel', e => e.preventDefault()); // must pick a button
-function notify(r) {
-  if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
-  try { new Notification('Guardian: access request', { body: `He wants to ${r.kind === 'site' ? 'visit' : 'open'} ${r.name || r.app}`, tag: r.app }); } catch {}
-}
-
-// ---------- Live viewer ----------
 $('connect').onclick = () => {
   const id = $('devid').value.trim(), code = $('code').value.trim();
-  if (!/^\d{9}$/.test(id)) return status('Device ID must be 9 digits', true);
+  if (!/^\d{9}$/.test(id)) { toast('Device ID must be 9 digits'); return; }
   store.set('guardian.id', id);
   store.set('guardian.code', $('remember').checked ? code : '');
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   startInbox(id, code);
-  ws = new WebSocket(wsUrl('/ws/controller', id));
+  ws = new WebSocket(wsUrl('/ws/controller'));
   ws.binaryType = 'blob';
-  status('Connecting…');
-  ws.onopen = () => status('Waiting for device…');
-  ws.onclose = () => { status('Disconnected'); connected(false); };
+  setStatus('Connecting…', 'off');
+  ws.onopen  = () => setStatus('Waiting for device…', 'off');
+  ws.onclose = () => { onConnected(false); };
   ws.onmessage = async ev => {
     if (typeof ev.data !== 'string') {
-      const bmp = await createImageBitmap(ev.data.slice(1, ev.data.size, 'image/jpeg'));
+      const ab = await ev.data.arrayBuffer();
+      const bmp = await createImageBitmap(new Blob([ab.slice(1)], { type:'image/jpeg' }));
       if (canvas.width !== bmp.width || canvas.height !== bmp.height) { canvas.width = bmp.width; canvas.height = bmp.height; }
       ctx.drawImage(bmp, 0, 0); bmp.close();
       return;
     }
     const m = JSON.parse(ev.data);
-    if (m.type === 'auth_required') send({ type: 'auth', code });
-    if (m.type === 'auth_failed') { status(m.reason === 'locked' ? 'Too many wrong codes, locked 5 min' : 'Wrong pairing code', true); ws.close(); }
-    if (m.type === 'hello') {
-      const sel = $('monitors'); sel.innerHTML = '';
-      m.monitors.forEach(mon => sel.add(new Option(`Screen ${mon.index + 1}${mon.primary ? ' (main)' : ''} · ${mon.width}×${mon.height}`, mon.index)));
-      policy = m.policy || policy;
-      status('Live'); connected(true);
+    if (m.type === 'auth_required') send({ type:'auth', code });
+    if (m.type === 'auth_failed') {
+      toast(m.reason === 'locked' ? '🔒 Too many wrong codes — locked for 5 min' : '❌ Wrong pairing code');
+      ws.close();
     }
-    if (m.type === 'policy') policy = m.policy;
+    if (m.type === 'hello') {
+      policy = m.policy || policy;
+      setStatus('Live', 'live');
+      onConnected(true);
+      goTo('view');
+      renderTopbarActions('view');
+      // Build monitor select
+      const sel = $('monitors');
+      if (sel) {
+        sel.innerHTML = '';
+        m.monitors.forEach(mon => sel.add(new Option(`Screen ${mon.index + 1}${mon.primary ? ' (main)':''} · ${mon.width}×${mon.height}`, mon.index)));
+      }
+    }
+    if (m.type === 'policy') { policy = m.policy; }
     if (m.type === 'clipboard') {
-      try { await navigator.clipboard.writeText(m.text); toast('Copied their clipboard to yours'); }
+      try { await navigator.clipboard.writeText(m.text); toast('Clipboard copied from their PC'); }
       catch { toast('Their clipboard: ' + m.text.slice(0, 80)); }
     }
   };
 };
-// Remembered on this device: start the request inbox as soon as the page opens.
-if (store.get('guardian.id') && store.get('guardian.code')) startInbox(store.get('guardian.id'), store.get('guardian.code'));
 
-$('monitors').onchange = e => send({ type: 'select_monitor', index: +e.target.value });
-$('disconnect').onclick = () => ws && ws.close();
-$('control').onclick = () => setControl(!control);
+if (store.get('guardian.id') && store.get('guardian.code')) {
+  startInbox(store.get('guardian.id'), store.get('guardian.code'));
+}
+
+// ── Inbox (approval requests) ─────────────────────────────────
+function startInbox(id, code) {
+  if (inbox?.readyState <= 1) return;
+  const url = `${location.protocol === 'https:' ? 'wss':'ws'}://${location.host}/ws/parent?id=${id}`;
+  inbox = new WebSocket(url);
+  inbox.onclose = () => setTimeout(() => startInbox(id, code), 5000);
+  inbox.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'auth_required') sendInbox({ type:'auth', code });
+    if (m.type === 'auth_failed') { inbox.onclose = null; inbox.close(); }
+    if (m.type === 'parent_hello') { policy = m.policy; queue = m.pending; renderQueue(); }
+    if (m.type === 'request') {
+      if (!queue.some(r => r.app === m.request.app)) queue.push(m.request);
+      notify(m.request); renderQueue();
+    }
+    if (m.type === 'resolved') {
+      queue = queue.filter(r => r.app !== m.app);
+      if ($('req-modal').dataset.app === m.app) closeModal();
+      renderQueue();
+    }
+  };
+}
+
+// ── Requests rendering ────────────────────────────────────────
+function renderQueue() {
+  const badge = $('req-badge');
+  badge.hidden = queue.length === 0;
+  badge.textContent = queue.length;
+  const list = $('req-list');
+  list.innerHTML = '';
+  if (!queue.length) {
+    list.innerHTML = `<div class="requests-empty" style="grid-column:1/-1">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span>No pending requests</span>
+    </div>`;
+    return;
+  }
+  queue.forEach(r => {
+    const isApp = r.kind !== 'site';
+    const card = document.createElement('div');
+    card.className = 'req-card';
+    card.innerHTML = `
+      <div class="req-card-header">
+        <div class="req-icon ${isApp ? 'app' : 'site'}">${isApp ? '📦' : '🌐'}</div>
+        <div class="req-card-info">
+          <div class="req-name">${esc(r.name || r.app)}</div>
+          <div class="req-sub">${esc(r.path || r.app)}</div>
+        </div>
+        <div class="req-time">${timeAgo(r.requested_at)}</div>
+      </div>
+      <div class="req-actions">
+        <button class="btn btn-bad" data-a="Deny" data-k="${esc(r.app)}">Deny</button>
+        <button class="btn btn-warn" data-a="Temporary" data-k="${esc(r.app)}">Temporary Access</button>
+        <button class="btn btn-good" data-a="Approve" data-k="${esc(r.app)}">Approve</button>
+      </div>`;
+    card.querySelectorAll('[data-a]').forEach(b => b.onclick = () => decide(b.dataset.k, b.dataset.a));
+    list.appendChild(card);
+  });
+}
+function decide(app, decision) {
+  sendInbox({ type:'decide', app, decision });
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function timeAgo(ts) {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+
+// ── Modal (shown when page is in background) ──────────────────
+function showModal() {
+  if (!queue.length) return;
+  const r = queue[0];
+  $('modal-title').textContent = 'Access request';
+  $('modal-sub').textContent = r.kind === 'site' ? "He's trying to visit:" : "He's trying to open:";
+  $('modal-name').textContent = r.name || r.app;
+  $('modal-path').textContent = r.path || '';
+  const m = $('req-modal');
+  m.dataset.app = r.app;
+  m.style.display = 'flex';
+  requestAnimationFrame(() => m.classList.add('show'));
+}
+function closeModal() {
+  const m = $('req-modal');
+  m.classList.remove('show');
+  setTimeout(() => { m.style.display = 'none'; m.dataset.app = ''; }, 220);
+}
+$('modal-deny').onclick    = () => { const a = $('req-modal').dataset.app; decide(a,'Deny');      closeModal(); };
+$('modal-temp').onclick    = () => { const a = $('req-modal').dataset.app; decide(a,'Temporary'); closeModal(); };
+$('modal-approve').onclick = () => { const a = $('req-modal').dataset.app; decide(a,'Approve');   closeModal(); };
+$('req-modal').addEventListener('click', e => { if (e.target === $('req-modal')) { /* can't dismiss */ } });
+
+function notify(r) {
+  if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') {
+    if (currentPage !== 'requests') showModal();
+    return;
+  }
+  try { new Notification('Guardian: access request', { body:`He wants to ${r.kind==='site'?'visit':'open'} ${r.name||r.app}`, tag:r.app }); } catch {}
+}
+
+// ── Rules page ────────────────────────────────────────────────
 const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
 const DAYNAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-$('days').innerHTML = DAYS.map((d, i) => `<div class="day"><span>${DAYNAMES[i]}</span><input id="day-${d}" placeholder="e.g. 16:00-20:00"></div>`).join('');
-let shown = null; // what the Rules window showed when opened
-$('rules').onclick = () => {
-  shown = { allowed: [...policy.allowed_apps], blocked: [...policy.blocked_apps],
-            allowedSites: [...(policy.allowed_sites || [])], blockedSites: [...(policy.blocked_sites || [])] };
-  $('allowlist').value = policy.allowed_apps.join('\n');
-  $('blocklist').value = policy.blocked_apps.join('\n');
+$('days').innerHTML = DAYS.map((d,i) => `
+  <div class="day-col">
+    <div class="day-label">${DAYNAMES[i]}</div>
+    <input id="day-${d}" placeholder="e.g. 16:00-20:00" type="text">
+  </div>`).join('');
+
+document.querySelectorAll('.nav-btn[data-page="rules"]').forEach(b => b.addEventListener('click', () => {
+  shownPolicy = {
+    allowed: [...policy.allowed_apps], blocked: [...policy.blocked_apps],
+    aSites: [...(policy.allowed_sites||[])], bSites: [...(policy.blocked_sites||[])],
+  };
+  $('allowlist').value  = policy.allowed_apps.join('\n');
+  $('blocklist').value  = policy.blocked_apps.join('\n');
   $('askunknown').checked = policy.ask_unknown;
-  $('allowsites').value = (policy.allowed_sites || []).join('\n');
-  $('blocksites').value = (policy.blocked_sites || []).join('\n');
+  $('allowsites').value = (policy.allowed_sites||[]).join('\n');
+  $('blocksites').value = (policy.blocked_sites||[]).join('\n');
   $('askunknownsites').checked = policy.ask_unknown_sites !== false;
-  const sch = policy.schedule || { enabled: false, days: {} };
+  const sch = policy.schedule || { enabled:false, days:{} };
   $('schedon').checked = sch.enabled;
-  DAYS.forEach(d => $('day-' + d).value = (sch.days[d] || []).join(', '));
-  $('ruledlg').showModal();
+  DAYS.forEach(d => $('day-'+d).value = (sch.days[d]||[]).join(', '));
+}));
+
+$('rules-cancel').onclick = () => {
+  if (shownPolicy) {
+    $('allowlist').value  = shownPolicy.allowed.join('\n');
+    $('blocklist').value  = shownPolicy.blocked.join('\n');
+    $('allowsites').value = shownPolicy.aSites.join('\n');
+    $('blocksites').value = shownPolicy.bSites.join('\n');
+  }
+  toast('Changes discarded');
 };
-// An item you just added to one list is taken off the other one.
+
 function moveResolve(allow, block, oldAllow, oldBlock) {
   const nA = allow.filter(a => !oldAllow.includes(a)), nB = block.filter(a => !oldBlock.includes(a));
   block = block.filter(a => !nA.includes(a) || nB.includes(a));
   allow = allow.filter(a => !block.includes(a));
   return [allow, block];
 }
-$('ruledlg').addEventListener('close', () => {
-  if ($('ruledlg').returnValue !== 'save') return;
+$('rules-save').onclick = () => {
   const lines = id => [...new Set($(id).value.split('\n').map(s => s.trim()).filter(Boolean))];
+  const appKey = a => (a.includes('\\')||a.includes('/')) ? a.replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase() : a.toLowerCase();
+  const siteKey = a => a.toLowerCase().replace(/^https?:\/\//,'').split(/[\/?#:]/)[0].replace(/^www\./,'');
+  const sp = shownPolicy || { allowed:[], blocked:[], aSites:[], bSites:[] };
   const lc = l => l.map(s => s.toLowerCase());
-  const appKey = a => (a.includes('\\') || a.includes('/')) ? a.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() : a.toLowerCase();
-  const siteKey = a => a.toLowerCase().replace(/^https?:\/\//, '').split(/[\/?#:]/)[0].replace(/^www\./, '');
-  const [allowed, blocked] = moveResolve(lines('allowlist').map(appKey), lines('blocklist').map(appKey), lc(shown.allowed), lc(shown.blocked));
-  const [aSites, bSites] = moveResolve(lines('allowsites').map(siteKey), lines('blocksites').map(siteKey), shown.allowedSites, shown.blockedSites);
+  const [allowed, blocked] = moveResolve(lines('allowlist').map(appKey), lines('blocklist').map(appKey), lc(sp.allowed), lc(sp.blocked));
+  const [aSites, bSites]   = moveResolve(lines('allowsites').map(siteKey), lines('blocksites').map(siteKey), sp.aSites, sp.bSites);
   const days = {};
-  DAYS.forEach(d => { const w = $('day-' + d).value.split(',').map(s => s.trim()).filter(Boolean); if (w.length) days[d] = w; });
-  send({ type: 'set_policy', policy: {
+  DAYS.forEach(d => { const w = $('day-'+d).value.split(',').map(s=>s.trim()).filter(Boolean); if(w.length) days[d]=w; });
+  send({ type:'set_policy', policy:{
     allowed_apps: allowed, blocked_apps: blocked, ask_unknown: $('askunknown').checked,
     allowed_sites: aSites, blocked_sites: bSites, ask_unknown_sites: $('askunknownsites').checked,
     schedule: { enabled: $('schedon').checked, days },
   }});
-  toast('Saved');
-});
-$('sendclip').onclick = async () => {
-  try { const t = await navigator.clipboard.readText(); send({ type: 'clipboard', text: t }); toast('Sent your clipboard'); }
-  catch { toast('Browser blocked clipboard access'); }
+  shownPolicy = { allowed, blocked, aSites, bSites };
+  toast('Rules saved ✓');
 };
 
-// ---------- Remote input (only while "Take control" is on) ----------
+// ── Send clipboard ────────────────────────────────────────────
+async function sendClipboard() {
+  try { const t = await navigator.clipboard.readText(); send({ type:'clipboard', text:t }); toast('Clipboard sent to their PC'); }
+  catch { toast('Browser blocked clipboard read — paste manually'); }
+}
+
+// ── Remote input ──────────────────────────────────────────────
 function pos(e) {
   const r = canvas.getBoundingClientRect();
-  return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+  return { x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height };
 }
-const BUTTONS = ['left', 'middle', 'right'];
+const BUTTONS = ['left','middle','right'];
 canvas.addEventListener('mousemove', e => {
   if (!control) return;
   const now = performance.now(); if (now - lastMove < 16) return; lastMove = now;
-  send({ type: 'mouse_move', ...pos(e) });
+  send({ type:'mouse_move', ...pos(e) });
 });
 canvas.addEventListener('mousedown', e => {
   if (!control) return; e.preventDefault(); canvas.focus();
-  send({ type: 'mouse_move', ...pos(e) });
-  send({ type: 'mouse_button', button: BUTTONS[e.button] || 'left', down: true });
+  send({ type:'mouse_move', ...pos(e) });
+  send({ type:'mouse_button', button:BUTTONS[e.button]||'left', down:true });
 });
-canvas.addEventListener('mouseup', e => { if (control) send({ type: 'mouse_button', button: BUTTONS[e.button] || 'left', down: false }); });
+canvas.addEventListener('mouseup', e => { if (control) send({ type:'mouse_button', button:BUTTONS[e.button]||'left', down:false }); });
 canvas.addEventListener('contextmenu', e => { if (control) e.preventDefault(); });
 canvas.addEventListener('wheel', e => {
   if (!control) return; e.preventDefault();
-  send({ type: 'wheel', dx: Math.sign(e.deltaX), dy: Math.sign(e.deltaY) });
-}, { passive: false });
-for (const t of ['keydown', 'keyup']) {
+  send({ type:'wheel', dx:Math.sign(e.deltaX), dy:Math.sign(e.deltaY) });
+}, { passive:false });
+for (const t of ['keydown','keyup']) {
   canvas.addEventListener(t, e => {
     if (!control) return; e.preventDefault();
-    if (t === 'keydown' && e.repeat && e.key.length > 1 && !['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
-    send({ type: 'key', key: e.key, down: t === 'keydown' });
+    if (t==='keydown' && e.repeat && e.key.length>1 && !['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
+    send({ type:'key', key:e.key, down:t==='keydown' });
   });
 }
-canvas.addEventListener('blur', () => { if (control) ['Shift','Control','Alt','Meta'].forEach(k => send({ type: 'key', key: k, down: false })); });
+canvas.addEventListener('blur', () => {
+  if (control) ['Shift','Control','Alt','Meta'].forEach(k => send({ type:'key', key:k, down:false }));
+});
 </script>
 </body>
 </html>
