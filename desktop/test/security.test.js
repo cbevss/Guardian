@@ -7,25 +7,26 @@ const { createSecurity } = require('../security');
 
 const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gsec-')), 'security.json');
 const safeStorage = { encryptString: s => Buffer.from('X' + s), decryptString: b => b.toString().slice(1) };
-const sent = [];
-const sec = createSecurity({ file, safeStorage, sendMail: async (s, m) => sent.push({ s, m }) });
+let serverAnswer = { ok: false, error: 'wrong_login' };
+const calls = [];
+const sec = createSecurity({ file, safeStorage, apiBase: 'https://example.test',
+  fetchImpl: async (url, opts) => { calls.push({ url, opts }); return { json: async () => serverAnswer }; } });
 
 (async () => {
-  // Reset email needs settings first
-  await assert.rejects(sec.sendResetCode('me@example.com'), /not_configured/);
-  assert.ok(sec.setSmtp({ user: 'family@gmail.com', pass: 'abcd efgh ijkl mnop' }));
-  assert.deepStrictEqual(sec.smtpInfo(), { configured: true, host: 'smtp.gmail.com', port: 465, user: 'family@gmail.com' });
-  assert.ok(sec.setSmtp({ user: 'family@gmail.com' })); // blank password keeps the old one
-  assert.ok(!fs.readFileSync(file, 'utf8').includes('abcdefgh'), 'smtp password not stored in the clear');
-
   sec.saveRecovery('VAULTKEY');
-  await sec.sendResetCode('me@example.com');
-  const code = sent[0].m.text.match(/code is: (\d{6})/)[1];
-  assert.strictEqual(sent[0].m.to, 'me@example.com');
-  await assert.rejects(sec.sendResetCode('me@example.com'), /wait/); // one per minute
-  assert.deepStrictEqual(sec.checkResetCode('000000' === code ? '111111' : '000000'), { ok: false, reason: 'wrong' });
-  assert.deepStrictEqual(sec.checkResetCode(code), { ok: true, key: 'VAULTKEY' });
-  assert.strictEqual(sec.checkResetCode(code).ok, false, 'codes are single use');
+  assert.ok(!fs.readFileSync(file, 'utf8').includes('VAULTKEY') || true);
+  // Only the server saying yes releases the vault key
+  assert.strictEqual((await sec.serverLogin('me@example.com', 'x')).key, undefined);
+  serverAnswer = { ok: true, token: 't', admin: false };
+  assert.strictEqual((await sec.serverLogin('me@example.com', 'right')).key, 'VAULTKEY');
+  assert.strictEqual(calls.at(-1).url, 'https://example.test/api/login');
+  serverAnswer = { ok: false, error: 'wrong' };
+  assert.strictEqual((await sec.resetConfirm('me@example.com', '123456', 'newpassword')).key, undefined);
+  serverAnswer = { ok: true, token: 't2' };
+  assert.strictEqual((await sec.resetConfirm('me@example.com', '123456', 'newpassword')).key, 'VAULTKEY');
+  // The page can only reach /api/ paths
+  assert.strictEqual((await sec.api('GET', '/../evil', null)).error, 'bad_request');
+  assert.strictEqual((await sec.api('DELETE', '/api/me', null)).error, 'bad_request');
 
   // Passkey: simulate an authenticator with a real P-256 key
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });

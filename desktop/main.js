@@ -114,6 +114,7 @@ ipcMain.on('guardian:request', () => {
   win.flashFrame(true);
 });
 ipcMain.handle('guardian:version', () => app.getVersion());
+ipcMain.handle('guardian:server', () => process.env.GUARDIAN_API || require('./config').API_BASE);
 
 // ---------- account security (see security.js) ----------
 let sec = null;
@@ -121,11 +122,7 @@ function security() {
   if (!sec) sec = createSecurity({
     file: path.join(app.getPath('userData'), 'security.json'),
     safeStorage,
-    sendMail: async (s, msg) => {
-      const nodemailer = require('nodemailer');
-      const t = nodemailer.createTransport({ host: s.host, port: s.port, secure: s.port === 465, auth: { user: s.user, pass: s.pass } });
-      await t.sendMail(msg);
-    },
+    apiBase: process.env.GUARDIAN_API || require('./config').API_BASE,
   });
   return sec;
 }
@@ -135,11 +132,9 @@ const handle = (name, fn) => ipcMain.handle(name, async (e, ...a) => {
   try { return await fn(...a); } catch (err) { return { error: err.message || String(err) }; }
 });
 handle('sec:saveRecovery', k => security().saveRecovery(k));
-handle('sec:smtpInfo', () => security().smtpInfo());
-handle('sec:setSmtp', c => security().setSmtp(c));
-handle('sec:testMail', to => security().mail(to, 'Guardian test email', 'Password reset emails from Guardian will come from this address. All working.').then(() => true));
-handle('sec:sendReset', email => security().sendResetCode(email));
-handle('sec:checkReset', code => security().checkResetCode(code));
+handle('sec:api', (m, p, b, t) => security().api(m, p, b, t));
+handle('sec:serverLogin', (e, p) => security().serverLogin(e, p));
+handle('sec:resetConfirm', (e, c, p) => security().resetConfirm(e, c, p));
 handle('sec:challenge', () => security().newChallenge());
 handle('sec:passkeys', () => security().listPasskeys());
 handle('sec:addPasskey', p => security().addPasskey(p));

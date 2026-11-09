@@ -1,26 +1,25 @@
 'use strict';
 // The parts of the lock screen that need the app itself (not the page):
-//  - a recovery copy of the vault key, sealed with Windows' own encryption for this
-//    Windows user (DPAPI via Electron safeStorage), released only after an emailed
-//    reset code or a passkey (Windows Hello) has been checked here
-//  - sending password-reset emails through the family's own email account
-//  - checking passkey signatures
+//  - a recovery copy of the vault key, sealed by Windows for this Windows user
+//    (DPAPI via Electron safeStorage). It is only handed back after the Guardian
+//    server confirms the account (right password, or an emailed reset code) or
+//    after a passkey (Windows Hello) signature is checked here.
+//  - talking to the Guardian server (accounts, reset codes, admin settings).
+//    Emails are sent by the server; no email password is ever on this PC.
 
 const crypto = require('crypto');
 const fs = require('fs');
 
-const CODE_MINUTES = 15;
 const ORIGINS = ['http://localhost:8080', 'http://127.0.0.1:8080'];
 
-function createSecurity({ file, safeStorage, sendMail }) {
-  // ---------- storage (everything secret is sealed with safeStorage) ----------
+function createSecurity({ file, safeStorage, apiBase, fetchImpl = fetch }) {
   let data = {};
   try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { data = {}; }
   const save = () => { try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {} };
   const seal = s => safeStorage.encryptString(s).toString('base64');
   const unseal = b => { try { return safeStorage.decryptString(Buffer.from(b, 'base64')); } catch { return null; } };
-  const sha = s => crypto.createHash('sha256').update(s).digest('hex');
   data.passkeys = data.passkeys || [];
+  delete data.smtp; delete data.reset; // older builds kept email settings here
 
   // ---------- recovery copy of the vault key ----------
   function saveRecovery(keyB64) {
@@ -29,53 +28,25 @@ function createSecurity({ file, safeStorage, sendMail }) {
   }
   const recoveryKey = () => (data.recovery ? unseal(data.recovery) : null);
 
-  // ---------- reset email settings ----------
-  function setSmtp(cfg) {
-    if (!cfg || !cfg.user) { delete data.smtp; save(); return true; }
-    const keep = data.smtp ? JSON.parse(unseal(data.smtp) || '{}') : {};
-    const clean = {
-      host: String(cfg.host || 'smtp.gmail.com').trim(),
-      port: Number(cfg.port) || 465,
-      user: String(cfg.user).trim(),
-      pass: cfg.pass ? String(cfg.pass).replace(/\s+/g, '') : keep.pass, // blank = keep the old one
-    };
-    if (!clean.pass) return false;
-    data.smtp = seal(JSON.stringify(clean)); save(); return true;
+  // ---------- Guardian server ----------
+  async function api(method, path, body, token) {
+    if (!/^\/api\/[a-z0-9/_-]+$/.test(path) || !['GET', 'POST', 'PUT'].includes(method)) return { ok: false, error: 'bad_request' };
+    try {
+      const r = await fetchImpl(apiBase + path, {
+        method, headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },
+        body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
+      });
+      return await r.json();
+    } catch { return { ok: false, error: 'offline' }; }
   }
-  const smtp = () => (data.smtp ? JSON.parse(unseal(data.smtp) || 'null') : null);
-  function smtpInfo() { const s = smtp(); return s ? { configured: true, host: s.host, port: s.port, user: s.user } : { configured: false }; }
-
-  async function mail(to, subject, text) {
-    const s = smtp();
-    if (!s) throw new Error('not_configured');
-    await sendMail(s, { from: `Guardian <${s.user}>`, to, subject, text });
+  /** The server says the password is right (e.g. it was changed on the website): hand back the vault key too. */
+  async function serverLogin(email, password) {
+    const r = await api('POST', '/api/login', { email, password });
+    return r.ok ? { ...r, key: recoveryKey() } : r;
   }
-
-  // ---------- reset codes ----------
-  async function sendResetCode(email) {
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email || '')) throw new Error('bad_email');
-    const now = Date.now();
-    if (data.reset && now - data.reset.sent < 60_000) throw new Error('wait');
-    if (!smtp()) throw new Error('not_configured');
-    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-    const reset = { hash: sha(code), sent: now, expires: now + CODE_MINUTES * 60_000, tries: 0 };
-    data.reset = reset; save();
-    try { await mail(email, 'Your Guardian reset code',
-      `Someone (hopefully you) needs to reset the Guardian password on this PC.\n\n` +
-      `Your code is: ${code}\n\nIt works for ${CODE_MINUTES} minutes. If this wasn't you, someone may be trying ` +
-      `to get into Guardian on your PC. Your password hasn't changed, and they can't get in without this code.`); }
-    catch (e) { delete data.reset; save(); throw e; }
-    return true;
-  }
-  /** Right code -> the vault key, so the page can set a new password without losing anything. */
-  function checkResetCode(code) {
-    const r = data.reset;
-    if (!r || Date.now() > r.expires) return { ok: false, reason: 'expired' };
-    if (r.tries >= 5) { delete data.reset; save(); return { ok: false, reason: 'expired' }; }
-    const good = crypto.timingSafeEqual(Buffer.from(sha(String(code || '').trim())), Buffer.from(r.hash));
-    if (!good) { r.tries++; save(); return { ok: false, reason: 'wrong' }; }
-    delete data.reset; save();
-    return { ok: true, key: recoveryKey() };
+  async function resetConfirm(email, code, password) {
+    const r = await api('POST', '/api/reset/confirm', { email, code, password });
+    return r.ok ? { ...r, key: recoveryKey() } : r;
   }
 
   // ---------- passkeys ----------
@@ -111,9 +82,9 @@ function createSecurity({ file, safeStorage, sendMail }) {
     } catch { return { ok: false }; }
   }
 
-  function wipe() { data = { passkeys: [], smtp: data.smtp }; save(); } // a full reset keeps the email settings
+  function wipe() { data = { passkeys: [] }; save(); }
 
-  return { saveRecovery, setSmtp, smtpInfo, mail, sendResetCode, checkResetCode, newChallenge, listPasskeys, addPasskey, removePasskey, verifyPasskey, wipe };
+  return { saveRecovery, api, serverLogin, resetConfirm, newChallenge, listPasskeys, addPasskey, removePasskey, verifyPasskey, wipe };
 }
 
 module.exports = { createSecurity };

@@ -216,7 +216,7 @@ body {
   color: var(--muted);
   letter-spacing: .02em;
 }
-input[type=text], input[type=password], input[type=number], textarea, select {
+input[type=text], input[type=password], input[type=number], input[type=email], textarea, select {
   background: var(--bg);
   border: 1px solid var(--border2);
   border-radius: 7px;
@@ -659,6 +659,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
     <div class="lock-links">
       <button class="lock-link" id="lock-forgot" hidden>Forgot password?</button>
       <button class="lock-link" id="lock-back" hidden>Back</button>
+      <button class="lock-link" id="lock-alt" hidden>I already have an account</button>
     </div>
   </div>
 </div>
@@ -810,11 +811,11 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
   <!-- Admin page (only the admin account sees this) -->
   <div class="page" id="page-admin">
     <div class="admin-wrap">
-      <div class="admin-warn" id="admin-other" hidden>Another parent app already holds admin on his PC, so changes here won't be sent to it.</div>
+      
 
       <div class="rule-card">
         <h3>Password reset email</h3>
-        <div class="rule-hint">Every Guardian app sends its reset codes from this one account. Parents never see this setting; their app picks it up from his PC the next time it connects. For iCloud, make an app-specific password at account.apple.com → Sign-In and Security → App-Specific Passwords. For Gmail, turn on 2-Step Verification and make one at myaccount.google.com/apppasswords.</div>
+        <div class="rule-hint">Guardian's server sends every sign-up and reset code from this one account. The password is stored on the server only, never on anyone's PC, and nobody else can see this setting. For iCloud, make an app-specific password at account.apple.com → Sign-In and Security → App-Specific Passwords. For Gmail, turn on 2-Step Verification and make one at myaccount.google.com/apppasswords.</div>
         <div class="smtp-state" id="smtp-state"></div>
         <div class="admin-form">
           <div class="field"><label>Email service</label>
@@ -859,7 +860,8 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
           <p>While a parent has control, all restrictions are paused for them and come back the moment control is handed back or the connection drops. Unrestricted switches off every rule, request and the schedule until turned back on. Only one parent can watch his screen at a time.</p></details>
         <details><summary>Parents and security</summary>
           <p>The first parent app to pair is added automatically; others need approving. Removing a parent cuts them off straight away. The pairing code is checked by his PC (5 wrong tries locks it for 5 minutes). Each app's saved pairing code is encrypted with its password; a recovery copy is sealed by Windows for that Windows user and is only released by an emailed reset code or a passkey.</p>
-          <p>Admin is the first app signed in as cbevs@icloud.com on his PC. Accounts live on each PC, so admin is pinned to that app: a different app using the same email is refused.</p></details>
+          <p>Accounts live on Guardian's server (a Cloudflare Worker with a D1 database). Signing up needs a code sent to that email, so only the real owner of cbevs@icloud.com can be admin. Passwords are stored hashed (PBKDF2). 5 wrong passwords locks the account for 15 minutes and emails a reset code. Each app also keeps its own encrypted copy so it can unlock offline.</p>
+          <p>The website (info and downloads) is served by the same Worker. Its address is set in desktop/config.js.</p></details>
         <details><summary>Updates</summary>
           <p>Every push to main on github.com/cbevss/Guardian builds release v1.0.&lt;build&gt;. Parent apps check every 30 minutes and install when the window is hidden or on quit. His PC checks every 3 hours, swaps in the new guardian-agent.exe and restarts the service. The repo must be public for downloads to work.</p></details>
         <details><summary>Limits</summary>
@@ -1029,6 +1031,7 @@ const vault = {
 ['guardian.code','guardian.pw_check'].forEach(k => store.set(k, '')); // older formats
 
 const account = () => store.get('guardian.account_email');
+let session = { token: '', admin: false };          // from the Guardian server, kept in memory only
 async function setPassword(pw) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   store.set('guardian.pw_salt', b64(salt));
@@ -1040,94 +1043,127 @@ async function openVault(rawB64) {
   try { vault.code = c ? await open_(vault.key, c) : ''; } catch { vault.code = ''; }
   sec('saveRecovery', b64(vault.raw));
 }
+async function localUnlock(pw) {
+  try { await openVault(await open_(await pwKey(pw, unb64(store.get('guardian.pw_salt'))), store.get('guardian.pw_wrap'))); return true; }
+  catch { return false; }
+}
+const server = (m, p, b) => sec('api', m, p, b, session.token);
+const serverSays = r => ({
+  offline: "Can't reach Guardian's server. Check the internet connection.",
+  bad_email: 'Type a valid email address', short_password: 'Use at least 8 characters for the password',
+  exists: 'That email already has an account. Go back and sign in.', wait: 'A code was sent less than a minute ago. Check your inbox and spam folder.',
+  wrong: 'That code is wrong. Check the email and try again.', expired: 'That code has expired. Ask for a new one.',
+  mail_not_set_up: "Guardian's email isn't set up yet, so codes can't be sent.", browser: 'Accounts work in the Guardian app.',
+}[r?.error] || "Something went wrong. Try again in a minute.");
 
-let lockView = 'login', lockFails = 0, lockUntil = 0;
-const maskEmail = e => e.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(Math.min(b.length, 6)) + c);
+let lockView = 'login', pendingPw = '', localFails = 0, lockUntil = 0;
+const maskEmail = e => (e || '').replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(Math.min(b.length, 6)) + c);
 function lockErr(m, ok) {
   $('lock-err').textContent = m || ''; $('lock-err').style.color = ok ? 'var(--good)' : '';
   if (m && !ok) { $('lock-card').classList.remove('shake'); void $('lock-card').offsetWidth; $('lock-card').classList.add('shake'); }
 }
 async function showLock(view) {
   lockView = view || (account() ? 'login' : 'create');
-  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = '');
   const v = lockView, show = (id, on) => $(id).hidden = !on;
-  show('lock-email', v === 'create'); show('lock-code', v === 'reset');
+  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = '');
+  show('lock-email', v === 'create' || v === 'signin');
+  show('lock-pw', v !== 'verify'); show('lock-code', v === 'reset' || v === 'verify');
   show('lock-pw2', v === 'create' || v === 'reset');
-  show('lock-forgot', v === 'login'); show('lock-back', v === 'reset');
+  show('lock-forgot', v === 'login' || v === 'signin'); show('lock-back', v === 'reset' || v === 'verify' || v === 'signin');
+  $('lock-alt').hidden = v !== 'create';
   $('lock-pw').placeholder = v === 'reset' ? 'New password' : 'Password';
-  $('lock-pw').autocomplete = v === 'login' ? 'current-password' : 'new-password';
-  $('lock-title').textContent = { create:'Create your Guardian account', login:'Welcome back', reset:'Reset your password' }[v];
+  $('lock-pw').autocomplete = v === 'login' || v === 'signin' ? 'current-password' : 'new-password';
+  $('lock-title').textContent = { create:'Create your Guardian account', signin:'Sign in to Guardian', verify:'Check your email', login:'Welcome back', reset:'Reset your password' }[v];
   $('lock-sub').textContent = {
-    create: "Your email is where reset codes go if you ever forget your password. You'll type the password each time Guardian starts.",
-    login: account() ? `Signed in as ${account()}. Guardian is locked until you enter your password.` : '',
-    reset: `We emailed a 6-digit code to ${maskEmail(account())}. It works for 15 minutes.`,
+    create: "Your email is where codes go to confirm your account and to reset your password if you forget it.",
+    signin: 'Use the email and password of your Guardian account.',
+    verify: `We emailed a 6-digit code to ${maskEmail($('lock-email').value.trim())}. Type it here to finish making your account.`,
+    login: `Signed in as ${account()}. Guardian is locked until you enter your password.`,
+    reset: `We emailed a 6-digit code to ${maskEmail(account() || $('lock-email').value.trim())}. It works for 15 minutes.`,
   }[v];
-  $('lock-go').textContent = { create:'Create account', login:'Unlock', reset:'Set new password' }[v];
+  $('lock-go').textContent = { create:'Create account', signin:'Sign in', verify:'Confirm', login:'Unlock', reset:'Set new password' }[v];
   $('lock-go').disabled = false;
   const keys = v === 'login' && desk ? await sec('passkeys') : [];
   show('lock-passkey', Array.isArray(keys) && keys.length > 0);
-  setTimeout(() => (v === 'create' ? $('lock-email') : v === 'reset' ? $('lock-code') : $('lock-pw')).focus(), 50);
+  setTimeout(() => ({ create:$('lock-email'), signin:$('lock-email'), verify:$('lock-code'), reset:$('lock-code') }[v] || $('lock-pw')).focus(), 50);
 }
 function unlocked() {
-  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = '');
+  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = ''); pendingPw = '';
   $('lock').classList.add('gone'); setTimeout(() => $('lock').remove(), 400);
   afterUnlock(); renderAccount();
 }
+async function newVault(email, pw) {
+  vault.raw = crypto.getRandomValues(new Uint8Array(32)); vault.key = await aesKey(vault.raw);
+  ['guardian.code_enc'].forEach(k => store.set(k, ''));
+  await setPassword(pw); store.set('guardian.account_email', email);
+  sec('saveRecovery', b64(vault.raw));
+}
 async function sendReset(auto) {
-  const r = await sec('sendReset', account());
-  if (r === true) { await showLock('reset'); if (auto) lockErr('Too many wrong tries, so we emailed you a reset code.', true); return true; }
-  const why = { not_configured: "Reset emails aren't set up on this PC yet (Settings → Password reset email). You can wait 30 seconds and try again, or reset Guardian on this PC.",
-    wait: 'A code was sent less than a minute ago. Check your inbox and spam folder.', browser: 'Password reset by email works in the Guardian app.' }[r?.error] || "Couldn't send the email. Check the internet connection and try again.";
-  lockErr(why);
-  if (r?.error === 'not_configured' || r?.error === 'browser') offerWipe();
-  return false;
+  const r = await sec('api', 'POST', '/api/reset/request', { email: account() || $('lock-email').value.trim(), auto });
+  if (r?.ok) { await showLock('reset'); if (auto) lockErr('Too many wrong tries, so we emailed you a reset code.', true); return; }
+  lockErr(serverSays(r));
 }
-function offerWipe() {
-  const b = $('lock-forgot'); b.hidden = false; b.textContent = 'Reset Guardian on this PC';
-  b.onclick = () => {
-    if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'This deletes your account and saved PC on this PC. Click again'; return; }
-    ['guardian.account_email','guardian.pw_salt','guardian.pw_wrap','guardian.code_enc','guardian.id'].forEach(k => store.set(k, ''));
-    sec('wipe'); b.dataset.sure = ''; b.textContent = 'Forgot password?'; b.onclick = () => sendReset(false);
-    showLock('create'); lockErr('Guardian was reset on this PC. Create a new account.', true);
-  };
-}
+const busy = (on, text) => { $('lock-go').disabled = on; if (text) $('lock-go').textContent = text; };
 async function lockSubmit() {
-  const v = lockView, pw = $('lock-pw').value;
-  if (v === 'login' && Date.now() < lockUntil) return lockErr(`Too many tries. Wait ${Math.ceil((lockUntil - Date.now())/1000)} seconds`);
+  const v = lockView, pw = $('lock-pw').value, email = (v === 'create' || v === 'signin' ? $('lock-email').value : account()).trim().toLowerCase();
   if (v === 'create') {
-    const email = $('lock-email').value.trim();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return lockErr('Type a valid email address');
     if (pw.length < 8) return lockErr('Use at least 8 characters for the password');
     if (pw !== $('lock-pw2').value) return lockErr("The two passwords don't match");
-    vault.raw = crypto.getRandomValues(new Uint8Array(32)); vault.key = await aesKey(vault.raw);
-    await setPassword(pw);
-    store.set('guardian.account_email', email);
-    sec('saveRecovery', b64(vault.raw));
-    return unlocked();
+    busy(true, 'Sending code…');
+    const r = await sec('api', 'POST', '/api/signup', { email, password: pw });
+    if (!r?.ok) { busy(false, 'Create account'); return lockErr(serverSays(r)); }
+    pendingPw = pw; return showLock('verify');
+  }
+  if (v === 'verify') {
+    const email2 = $('lock-email').value.trim().toLowerCase();
+    if (!/^\d{6}$/.test($('lock-code').value.trim())) return lockErr('Type the 6-digit code from the email');
+    busy(true, 'Checking…');
+    const r = await sec('api', 'POST', '/api/verify', { email: email2, code: $('lock-code').value.trim() });
+    if (!r?.ok) { busy(false, 'Confirm'); return lockErr(serverSays(r)); }
+    session = { token: r.token, admin: !!r.admin };
+    await newVault(email2, pendingPw); return unlocked();
+  }
+  if (v === 'signin') { // an account made on another PC or the website
+    busy(true, 'Signing in…');
+    const r = await sec('api', 'POST', '/api/login', { email, password: pw });
+    if (!r?.ok) { busy(false, 'Sign in'); return lockErr(r?.error === 'locked' ? 'Too many wrong tries. We emailed you a reset code.' : r?.error === 'wrong_login' ? 'Wrong email or password' : serverSays(r)); }
+    session = { token: r.token, admin: !!r.admin };
+    await newVault(email, pw); return unlocked();
   }
   if (v === 'login') {
-    $('lock-go').disabled = true; $('lock-go').textContent = 'Checking…';
-    try {
-      const raw = await open_(await pwKey(pw, unb64(store.get('guardian.pw_salt'))), store.get('guardian.pw_wrap'));
-      await openVault(raw); lockFails = 0; return unlocked();
-    } catch {
-      $('lock-go').disabled = false; $('lock-go').textContent = 'Unlock';
-      if (++lockFails >= 5) {
-        lockFails = 0; lockUntil = Date.now() + 30000;
-        if (await sendReset(true)) return;
-        return;
-      }
-      return lockErr(`Wrong password${lockFails >= 3 ? ` (${5 - lockFails} ${5 - lockFails === 1 ? 'try' : 'tries'} left before we email you a reset code)` : ''}`);
+    if (Date.now() < lockUntil) return lockErr(`Too many tries. Wait ${Math.ceil((lockUntil - Date.now())/1000)} seconds`);
+    busy(true, 'Checking…');
+    if (await localUnlock(pw)) {
+      localFails = 0;
+      sec('api', 'POST', '/api/login', { email, password: pw }).then(r => { if (r?.ok) { session = { token: r.token, admin: !!r.admin }; renderAdmin(); } });
+      return unlocked();
     }
+    // Not this PC's password. Ask the server: it may have been changed on the website or another PC.
+    const r = await sec('serverLogin', email, pw);
+    busy(false, 'Unlock');
+    if (r?.ok && r.key) { session = { token: r.token, admin: !!r.admin }; await openVault(r.key); await setPassword(pw); return unlocked(); }
+    if (r?.error === 'locked') {
+      if (r.emailed) { await showLock('reset'); return lockErr('Too many wrong tries, so we emailed you a reset code.', true); }
+      return lockErr('Locked for a while after too many wrong tries. Press Forgot password to get a code.');
+    }
+    if (r?.error === 'offline') {
+      if (++localFails >= 5) { localFails = 0; lockUntil = Date.now() + 30000; }
+      return lockErr("Wrong password. (Can't reach Guardian's server, so a reset email can't be sent right now.)");
+    }
+    return lockErr(`Wrong password${r?.left && r.left <= 2 ? ` (${r.left} ${r.left === 1 ? 'try' : 'tries'} left before we email you a reset code)` : ''}`);
   }
   if (v === 'reset') {
     if (!/^\d{6}$/.test($('lock-code').value.trim())) return lockErr('Type the 6-digit code from the email');
     if (pw.length < 8) return lockErr('Use at least 8 characters for the new password');
     if (pw !== $('lock-pw2').value) return lockErr("The two passwords don't match");
-    const r = await sec('checkReset', $('lock-code').value.trim());
-    if (!r?.ok) return lockErr(r?.reason === 'expired' ? 'That code has expired. Go back and press Forgot password to get a new one.' : 'That code is wrong. Check the email and try again.');
-    if (!r.key) return lockErr("Code accepted, but this PC's recovery copy is missing. Reset Guardian on this PC instead."), offerWipe();
-    await openVault(r.key); await setPassword(pw); lockUntil = 0;
+    busy(true, 'Checking…');
+    const r = await sec('resetConfirm', email, $('lock-code').value.trim(), pw);
+    busy(false, 'Set new password');
+    if (!r?.ok) return lockErr(serverSays(r));
+    session = { token: r.token, admin: !!r.admin };
+    if (r.key) { await openVault(r.key); await setPassword(pw); }
+    else { await newVault(email, pw); lockErr(''); } // no recovery copy on this PC: the saved PC needs adding again
     return unlocked();
   }
 }
@@ -1146,8 +1182,12 @@ async function passkeyUnlock() {
 }
 $('lock-go').onclick = lockSubmit;
 $('lock-passkey').onclick = passkeyUnlock;
-$('lock-forgot').onclick = () => sendReset(false);
-$('lock-back').onclick = () => { lockErr(''); showLock('login'); };
+$('lock-forgot').onclick = () => {
+  if (lockView === 'signin' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($('lock-email').value.trim())) return lockErr('Type your email first');
+  sendReset(false);
+};
+$('lock-back').onclick = () => { lockErr(''); showLock(account() ? 'login' : 'create'); };
+$('lock-alt').onclick = () => { lockErr(''); showLock('signin'); };
 ['lock-email','lock-code','lock-pw','lock-pw2'].forEach(i => $(i).addEventListener('keydown', e => { if (e.key === 'Enter') lockSubmit(); }));
 showLock();
 
@@ -1391,7 +1431,6 @@ function startInbox(id, code) {
     if (m.type === 'parent_hello') {
       agentInfo = { admin: !!m.admin, version: m.agent_version || '' };
       // The shared reset-email account, kept sealed by Windows on this PC. Never shown to non-admins.
-      if (m.mail && m.mail.user && m.mail.pass) sec('setSmtp', m.mail);
       setTimeout(renderAdmin, 0);
       $('pending-card').hidden = true; if (!linked) { setLinked(true); if (currentPage === 'connect') { goTo('view'); toast('Connected to his PC'); } } policy = m.policy; queue = m.pending; parentList = m.parents || []; waitingParents = m.waiting_parents || []; renderQueue(); renderUnrestricted(); renderParents(); }
     if (m.type === 'request') {
@@ -1563,17 +1602,17 @@ async function renderAccount() {
 }
 
 // ── Admin (only for the admin account) ──
-const ADMIN_EMAIL = 'cbevs@icloud.com';
-const isAdminAccount = () => !!desk && account().toLowerCase() === ADMIN_EMAIL;
+// The Guardian server decides who's admin (an account whose email was confirmed by code).
+const isAdminAccount = () => !!desk && session.admin;
 let agentInfo = { admin: null, version: '' };
 async function renderAdmin() {
   $('nav-admin').hidden = !isAdminAccount();
   if (!isAdminAccount()) { if (currentPage === 'admin') goTo('view'); return; }
-  $('admin-other').hidden = agentInfo.admin !== false;
-  const m = await sec('smtpInfo');
-  $('smtp-state').className = 'smtp-state' + (m?.configured ? ' ok' : '');
-  $('smtp-state').textContent = m?.configured ? `Reset codes are sent from ${m.user}` : "Not set up yet. Until it is, anyone who forgets their password has to reset Guardian on their PC.";
-  if (m?.configured && document.activeElement?.closest?.('#page-admin') == null) {
+  const r = await server('GET', '/api/admin/mail'), m = r?.mail ? { configured: true, ...r.mail } : null;
+  const st = await server('GET', '/api/admin/stats');
+  $('smtp-state').className = 'smtp-state' + (m ? ' ok' : '');
+  $('smtp-state').textContent = r?.error === 'offline' ? "Can't reach Guardian's server right now." : m ? `Codes are sent from ${m.user}` : "Not set up yet, so nobody can get sign-up or reset codes.";
+  if (m && document.activeElement?.closest?.('#page-admin') == null) {
     $('smtp-user').value = m.user;
     const preset = `${m.host}:${m.port}`, opt = [...$('smtp-preset').options].find(o => o.value === preset);
     $('smtp-preset').value = opt ? preset : 'custom';
@@ -1589,7 +1628,8 @@ async function renderAdmin() {
     ['Device ID', store.get('guardian.id') || 'Not added'],
     ['Connection', linked ? 'Home network, live' : 'Offline'],
     ['Parents', parentList.map(p => p.name).join(', ') || '—'],
-    ['Admin on his PC', agentInfo.admin === true ? 'This app' : agentInfo.admin === false ? 'Another app' : 'Not connected'],
+    ['Guardian accounts', st?.ok ? `${st.verified} confirmed` : '—'],
+    ['Server', (await desk.serverBase?.()) || 'Guardian server'],
   ];
   $('admin-info').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
 }
@@ -1600,10 +1640,11 @@ $('smtp-preset').onchange = () => {
 $('smtp-preset').onchange();
 $('cp-go').onclick = async () => {
   const [o, n, n2] = ['cp-old','cp-new','cp-new2'].map(i => $(i).value);
-  try { await open_(await pwKey(o, unb64(store.get('guardian.pw_salt'))), store.get('guardian.pw_wrap')); }
-  catch { return toast('Current password is wrong'); }
   if (n.length < 8) return toast('Use at least 8 characters');
   if (n !== n2) return toast("New passwords don't match");
+  const r = await server('POST', '/api/password', { old: o, password: n });
+  if (r?.error === 'wrong_login') return toast('Current password is wrong');
+  if (!r?.ok) return toast(r?.error === 'signed_out' ? 'Restart Guardian and try again' : serverSays(r));
   await setPassword(n); ['cp-old','cp-new','cp-new2'].forEach(i => $(i).value = '');
   toast('Password changed');
 };
@@ -1633,17 +1674,17 @@ $('smtp-save').onclick = async () => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user)) return toast('Type a valid email address');
   if (!pass) return toast('Type the app password (needed each time you save)');
   const mail = { user, pass, host: $('smtp-host').value.trim(), port: Number($('smtp-port').value) || 587 };
-  if ((await sec('setSmtp', mail)) !== true) return toast("Couldn't save");
-  if (linked) sendInbox({ type:'set_mail', mail });
+  const r = await server('PUT', '/api/admin/mail', { mail });
+  if (!r?.ok) return toast(r?.error === 'offline' ? "Can't reach Guardian's server" : "Couldn't save");
   $('smtp-pass').value = '';
-  toast(linked ? 'Saved. Every parent app gets it next time it connects' : "Saved on this PC only. Press Save again once his PC is connected to share it", 6000);
+  toast('Saved. Every Guardian app uses it straight away', 5000);
   renderAdmin();
 };
 $('smtp-test').onclick = async () => {
   $('smtp-test').disabled = true; $('smtp-test').textContent = 'Sending…';
-  const r = await sec('testMail', account());
+  const r = await server('POST', '/api/admin/test-mail');
   $('smtp-test').disabled = false; $('smtp-test').textContent = 'Send test email';
-  toast(r === true ? `Test email sent to ${account()}` : r?.error === 'not_configured' ? 'Save the email settings first' : "Couldn't send. Check the address and app password", 5000);
+  toast(r?.ok ? `Test email sent to ${account()}` : r?.error === 'mail_not_set_up' ? 'Save the email settings first' : "Couldn't send. Check the address and app password", 5000);
 };
 
 // ── Parents ──
