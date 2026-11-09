@@ -456,6 +456,12 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
 }
 .toggle-row input { flex-shrink: 0; }
 
+/* ── Unrestricted ── */
+.unr-card { transition: border-color .25s, background .25s; }
+.unr-card.on { border-color: rgba(245,166,35,.45); background: rgba(245,166,35,.07); }
+.unr-pill { display:none; margin-top:8px; font-size:11px; font-weight:600; color:var(--warn); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); padding:4px 8px; border-radius:6px; text-align:center; }
+.unr-pill.on { display:block; }
+
 /* ── Schedule ───────────────────────────────────────────────── */
 .schedule-card {
   grid-column: 1 / -1;
@@ -612,6 +618,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
       <div class="dot" id="dot"></div>
       <span id="conn-label">Disconnected</span>
     </div>
+    <div class="unr-pill" id="unr-pill">Unrestricted</div>
   </div>
 </nav>
 
@@ -669,6 +676,15 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
   <!-- Rules page -->
   <div class="page" id="page-rules">
     <div class="rules-grid">
+      <div class="rule-card unr-card" id="unr-card" style="grid-column:1/-1">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <h3 id="unr-title">Restrictions are on</h3>
+            <div class="rule-hint" id="unr-hint">Apps, websites and screen time follow the rules below.</div>
+          </div>
+          <button class="btn btn-warn" id="unr-btn">Remove all restrictions</button>
+        </div>
+      </div>
       <div class="rule-card">
         <h3>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -899,6 +915,7 @@ $('connect').onclick = () => {
     }
     if (m.type === 'hello') {
       policy = m.policy || policy;
+      renderUnrestricted();
       setStatus('Live', 'live');
       onConnected(true);
       goTo('view');
@@ -910,7 +927,7 @@ $('connect').onclick = () => {
         m.monitors.forEach(mon => sel.add(new Option(`Screen ${mon.index + 1}${mon.primary ? ' (main)':''} · ${mon.width}×${mon.height}`, mon.index)));
       }
     }
-    if (m.type === 'policy') { policy = m.policy; }
+    if (m.type === 'policy') { policy = m.policy; renderUnrestricted(); }
     if (m.type === 'clipboard') {
       try { await navigator.clipboard.writeText(m.text); toast('Clipboard copied from their PC'); }
       catch { toast('Their clipboard: ' + m.text.slice(0, 80)); }
@@ -932,7 +949,7 @@ function startInbox(id, code) {
     const m = JSON.parse(ev.data);
     if (m.type === 'auth_required') sendInbox({ type:'auth', code });
     if (m.type === 'auth_failed') { inbox.onclose = null; inbox.close(); }
-    if (m.type === 'parent_hello') { policy = m.policy; queue = m.pending; renderQueue(); }
+    if (m.type === 'parent_hello') { policy = m.policy; queue = m.pending; renderQueue(); renderUnrestricted(); }
     if (m.type === 'request') {
       if (!queue.some(r => r.app === m.request.app)) queue.push(m.request);
       notify(m.request); renderQueue();
@@ -1081,9 +1098,30 @@ $('rules-save').onclick = () => {
     allowed_apps: allowed, blocked_apps: blocked, ask_unknown: $('askunknown').checked,
     allowed_sites: aSites, blocked_sites: bSites, ask_unknown_sites: $('askunknownsites').checked,
     schedule: { enabled: $('schedon').checked, days },
+    unrestricted: !!policy.unrestricted,
   }});
   shownPolicy = { allowed, blocked, aSites, bSites };
   toast('Rules saved ✓');
+};
+
+// ── Unrestricted mode ─────────────────────────────────────────
+function renderUnrestricted() {
+  const on = !!policy.unrestricted;
+  $('unr-card').classList.toggle('on', on);
+  $('unr-pill').classList.toggle('on', on);
+  $('unr-title').textContent = on ? 'Unrestricted: no rules apply' : 'Restrictions are on';
+  $('unr-hint').textContent = on
+    ? 'He can open any app and visit any website, at any time. Nothing is asked or blocked until you turn restrictions back on.'
+    : 'Apps, websites and screen time follow the rules below.';
+  $('unr-btn').textContent = on ? 'Turn restrictions back on' : 'Remove all restrictions';
+  $('unr-btn').className = 'btn ' + (on ? 'btn-good' : 'btn-warn');
+}
+$('unr-btn').onclick = () => {
+  const p = { ...policy, unrestricted: !policy.unrestricted };
+  const msg = { type:'set_policy', policy: p };
+  if (ws?.readyState === 1) send(msg); else sendInbox(msg);
+  policy = p; renderUnrestricted();
+  toast(p.unrestricted ? 'All restrictions removed' : 'Restrictions back on');
 };
 
 // ── Send clipboard ────────────────────────────────────────────

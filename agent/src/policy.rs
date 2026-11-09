@@ -50,6 +50,9 @@ pub struct Policy {
     pub ask_unknown_sites: bool,
     #[serde(default)]
     pub schedule: Schedule,
+    /// "Unrestricted": every rule, request and the schedule switched off.
+    #[serde(default)]
+    pub unrestricted: bool,
 }
 
 impl Default for Policy {
@@ -57,7 +60,7 @@ impl Default for Policy {
         Self {
             blocked_apps: vec![], allowed_apps: vec![], ask_unknown: true,
             blocked_sites: vec![], allowed_sites: vec![], site_helpers: Default::default(), ask_unknown_sites: true,
-            schedule: Default::default(),
+            schedule: Default::default(), unrestricted: false,
         }
     }
 }
@@ -255,13 +258,16 @@ impl Shared {
         }
     }
 
-    pub fn overridden(&self) -> bool { self.parent_override.load(Ordering::SeqCst) }
+    /// True while a parent is in control, or the PC is set to Unrestricted.
+    pub fn overridden(&self) -> bool {
+        self.parent_override.load(Ordering::SeqCst) || self.policy.read().map(|p| p.unrestricted).unwrap_or(false)
+    }
 
     pub fn set_override(&self, on: bool) {
         let was = self.parent_override.swap(on, Ordering::SeqCst);
         if was != on {
             println!("[policy] {}", if on { "parent in control: restrictions paused" } else { "control handed back: restrictions active" });
-            if !on { self.enforce_apps(); } // close blocked apps straight away
+            if !on && !self.overridden() { self.enforce_apps(); } // close blocked apps straight away
         }
     }
 
@@ -279,13 +285,18 @@ impl Shared {
         // Anything now on a list no longer needs asking about.
         self.pending.lock().unwrap().retain(|key, _| {
             let k = key.strip_prefix("site:").unwrap_or(key);
-            ![&p.allowed_apps, &p.blocked_apps, &p.allowed_sites, &p.blocked_sites].iter().any(|l| l.iter().any(|x| x == k))
+            !p.unrestricted && ![&p.allowed_apps, &p.blocked_apps, &p.allowed_sites, &p.blocked_sites].iter().any(|l| l.iter().any(|x| x == k))
         });
+        if old.unrestricted != p.unrestricted {
+            println!("[policy] {}", if p.unrestricted { "Unrestricted: all rules off" } else { "restrictions back on" });
+            if !p.unrestricted { self.enforce_apps(); }
+        }
         let _ = self.events.send(Event::PolicyChanged);
         p
     }
 
     fn request(&self, key: String, kind: &str, name: String, path: String) {
+        if self.overridden() { return; }
         let mut pending = self.pending.lock().unwrap();
         if pending.contains_key(&key) { return; }
         let req = Request { app: key.clone(), kind: kind.into(), name, path, requested_at: now_secs() };
@@ -331,6 +342,7 @@ impl Shared {
     // ------------------------------------------------------------- apps
 
     fn enforce_apps(&self) {
+        if self.overridden() { return; }
         let pol = self.policy.read().unwrap().clone();
         let mut sys = sysinfo::System::new();
         sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
@@ -505,5 +517,16 @@ mod tests {
         s.enabled = false;
         assert!(s.allows(1, 17 * 60));
         assert_eq!(parse_window("20:00-16:00"), None);
+    }
+}
+
+#[cfg(test)]
+mod unrestricted_tests {
+    use super::*;
+    #[test] fn unrestricted_allows_everything() {
+        let s = Shared::new(Policy { unrestricted: true, ask_unknown_sites: true, ..Default::default() }, vec![], |_: &Policy| {});
+        assert!(s.allow_domain("anything-unknown.example"));
+        assert!(s.schedule_allows_now());
+        assert!(s.pending.lock().unwrap().is_empty());
     }
 }
