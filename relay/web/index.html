@@ -473,6 +473,20 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
 .lock-link { background:none; border:none; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
 .lock-link:hover { color:var(--fg); }
 
+/* ── Admin ── */
+#page-admin { overflow-y:auto; padding:24px; }
+.admin-wrap { max-width:760px; display:flex; flex-direction:column; gap:14px; }
+.admin-form { display:flex; flex-direction:column; gap:12px; }
+.admin-warn { font-size:13px; color:var(--warn); background:rgba(245,166,35,.08); border:1px solid rgba(245,166,35,.3); padding:10px 14px; border-radius:9px; }
+.kv { display:grid; grid-template-columns:auto 1fr; gap:8px 18px; font-size:13px; }
+.kv dt { color:var(--muted); }
+.kv dd { font-variant-numeric: tabular-nums; word-break:break-all; }
+.admin-docs details { border-top:1px solid var(--border); padding:10px 0; }
+.admin-docs summary { cursor:pointer; font-weight:600; font-size:13.5px; }
+.admin-docs p { font-size:13px; color:var(--muted); line-height:1.6; margin-top:8px; }
+.admin-docs p b { color:var(--fg); }
+.admin-docs code { background:var(--border); padding:1px 5px; border-radius:4px; font-size:12px; }
+
 /* ── Account ── */
 .acct-more summary { cursor:pointer; color:var(--accent); font-size:13px; font-weight:500; list-style:none; }
 .acct-more summary::-webkit-details-marker { display:none; }
@@ -687,6 +701,10 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
       Rules
     </button>
     <div style="flex:1"></div>
+    <button class="nav-btn" data-page="admin" id="nav-admin" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+      Admin
+    </button>
     <button class="nav-btn" data-page="connect" id="nav-connect">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       Settings
@@ -766,26 +784,6 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
       <button class="btn btn-secondary" id="pk-add" style="justify-content:center">Add a passkey</button>
     </div>
 
-    <div class="connect-card desk-only" id="smtp-card">
-      <h2 style="font-size:17px">Password reset email</h2>
-      <div class="rule-hint" style="margin-top:-8px">The email account Guardian sends reset codes from. A separate Gmail works best: turn on 2-Step Verification, then make an <b style="color:var(--fg)">App password</b> at myaccount.google.com/apppasswords and paste it here.</div>
-      <div class="smtp-state" id="smtp-state"></div>
-      <div class="connect-fields">
-        <div class="field"><label>Send from (email address)</label><input type="email" id="smtp-user" placeholder="guardian.family@gmail.com"></div>
-        <div class="field"><label>App password</label><input type="password" id="smtp-pass" placeholder="16 letters from Google"></div>
-        <details class="acct-more"><summary>Not Gmail?</summary>
-          <div class="connect-row" style="margin-top:10px">
-            <div class="field"><label>Server</label><input type="text" id="smtp-host" placeholder="smtp.gmail.com"></div>
-            <div class="field" style="max-width:90px"><label>Port</label><input type="text" id="smtp-port" placeholder="465"></div>
-          </div>
-        </details>
-        <div class="connect-row">
-          <button class="btn btn-primary" id="smtp-save" style="flex:1;justify-content:center">Save</button>
-          <button class="btn btn-ghost" id="smtp-test" style="flex:1;justify-content:center">Send test email</button>
-        </div>
-      </div>
-    </div>
-
     <div class="connect-card" id="pending-card" hidden style="border-color:rgba(245,166,35,.4)">
       <h2 style="font-size:16px;color:var(--warn)">Waiting for approval</h2>
       <div class="rule-hint">The pairing code was right. Ask the parent who set up Guardian to open Settings in their app and press Approve next to your name. You'll connect the moment they do.</div>
@@ -793,7 +791,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
 
     <div class="connect-card" id="parents-card" hidden>
       <h2 style="font-size:17px">Parents</h2>
-      <div class="rule-hint" style="margin-top:-8px">Only these parent apps can see his screen and change his rules. A new parent app needs approving here first, even with the right pairing code.</div>
+      <div class="rule-hint" style="margin-top:-8px">Only these parents can see his screen and change his rules. New parents need approving here first.</div>
       <div id="waiting-list" class="plist"></div>
       <div id="parent-list" class="plist"></div>
     </div>
@@ -806,6 +804,67 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
     <div id="screen-wrap">
       <canvas id="screen" tabindex="0"></canvas>
       <div id="control-banner">🟡 Controlling — restrictions paused</div>
+    </div>
+  </div>
+
+  <!-- Admin page (only the admin account sees this) -->
+  <div class="page" id="page-admin">
+    <div class="admin-wrap">
+      <div class="admin-warn" id="admin-other" hidden>Another parent app already holds admin on his PC, so changes here won't be sent to it.</div>
+
+      <div class="rule-card">
+        <h3>Password reset email</h3>
+        <div class="rule-hint">Every Guardian app sends its reset codes from this one account. Parents never see this setting; their app picks it up from his PC the next time it connects. For iCloud, make an app-specific password at account.apple.com → Sign-In and Security → App-Specific Passwords. For Gmail, turn on 2-Step Verification and make one at myaccount.google.com/apppasswords.</div>
+        <div class="smtp-state" id="smtp-state"></div>
+        <div class="admin-form">
+          <div class="field"><label>Email service</label>
+            <select id="smtp-preset">
+              <option value="smtp.mail.me.com:587">iCloud Mail</option>
+              <option value="smtp.gmail.com:465">Gmail</option>
+              <option value="smtp.office365.com:587">Outlook / Hotmail</option>
+              <option value="custom">Other</option>
+            </select></div>
+          <div class="field"><label>Send from (email address)</label><input type="email" id="smtp-user" placeholder="cbevs@icloud.com"></div>
+          <div class="field"><label>App password</label><input type="password" id="smtp-pass" placeholder="App-specific password"></div>
+          <div class="connect-row" id="smtp-custom" hidden>
+            <div class="field"><label>Server</label><input type="text" id="smtp-host" placeholder="smtp.example.com"></div>
+            <div class="field" style="max-width:90px"><label>Port</label><input type="text" id="smtp-port" placeholder="587"></div>
+          </div>
+          <div class="connect-row">
+            <button class="btn btn-primary" id="smtp-save" style="flex:1;justify-content:center">Save for everyone</button>
+            <button class="btn btn-ghost" id="smtp-test" style="flex:1;justify-content:center">Send test email</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rule-card">
+        <h3>System</h3>
+        <div class="kv" id="admin-info"></div>
+      </div>
+
+      <div class="rule-card admin-docs">
+        <h3>How Guardian works</h3>
+        <details open><summary>The pieces</summary>
+          <p><b>His PC</b> runs a protected Windows service (GuardianService, as SYSTEM). It restarts itself if closed, and his standard account can't stop or remove it. It streams his screen, takes remote input, enforces app and website rules and screen time.</p>
+          <p><b>Parent apps</b> run a small relay on port 8080 that his PC finds over the home network (UDP 47800 broadcast). The app window is the relay's page, wrapped in the desktop app with a tray icon and auto-updates.</p></details>
+        <details><summary>Apps</summary>
+          <p>Approving or blocking an app covers its whole install folder, so helpers and updaters keep working (e.g. <code>C:\Program Files (x86)\Steam</code>). Games inside launcher libraries (steamapps/common, Epic Games, Riot Games…) each count as their own app. A program name like <code>discord.exe</code> also works. Moving an item to the other list removes it from the first. Windows and Guardian's own programs can never be blocked.</p>
+          <p>Temporary Access lasts until that app is closed.</p></details>
+        <details><summary>Websites</summary>
+          <p>His PC's DNS points at Guardian's own filter (127.0.0.1). Approving <code>youtube.com</code> covers all its subdomains, and helper sites it loads in the next 60 seconds are learned automatically. Blocked and unknown sites get "no such site". Approved lookups go to Cloudflare for Families (1.1.1.3), which also blocks adult and malware sites, even in Unrestricted mode. Browser secure-DNS is switched off by policy so it can't skip the filter.</p>
+          <p>Temporary Access for a website lasts 1 hour. VPNs and proxy browser extensions can get around website filtering, so keep those blocked as apps.</p></details>
+        <details><summary>Screen time</summary>
+          <p>Times are written like <code>16:00-20:00</code> or <code>07:30-08:30, 15:00-20:00</code>. Outside them his PC locks every 15 seconds. An empty day stays locked all day. Paused while a parent has control.</p></details>
+        <details><summary>Control and Unrestricted</summary>
+          <p>While a parent has control, all restrictions are paused for them and come back the moment control is handed back or the connection drops. Unrestricted switches off every rule, request and the schedule until turned back on. Only one parent can watch his screen at a time.</p></details>
+        <details><summary>Parents and security</summary>
+          <p>The first parent app to pair is added automatically; others need approving. Removing a parent cuts them off straight away. The pairing code is checked by his PC (5 wrong tries locks it for 5 minutes). Each app's saved pairing code is encrypted with its password; a recovery copy is sealed by Windows for that Windows user and is only released by an emailed reset code or a passkey.</p>
+          <p>Admin is the first app signed in as cbevs@icloud.com on his PC. Accounts live on each PC, so admin is pinned to that app: a different app using the same email is refused.</p></details>
+        <details><summary>Updates</summary>
+          <p>Every push to main on github.com/cbevss/Guardian builds release v1.0.&lt;build&gt;. Parent apps check every 30 minutes and install when the window is hidden or on quit. His PC checks every 3 hours, swaps in the new guardian-agent.exe and restarts the service. The repo must be public for downloads to work.</p></details>
+        <details><summary>Limits</summary>
+          <p>In home mode a parent PC with Guardian open must be on the same network as his PC. Remote input can't reach the Windows lock screen or admin prompts. Outside-the-home access needs a relay server with HTTPS.</p></details>
+      </div>
     </div>
   </div>
 
@@ -832,7 +891,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
           Approved apps
         </h3>
-        <div class="rule-hint">One app folder per line, e.g. <code>C:\Program Files\Steam</code>. Covers everything inside.</div>
+        <div class="rule-hint">One app per line.</div>
         <textarea id="allowlist" rows="5"></textarea>
       </div>
       <div class="rule-card">
@@ -840,7 +899,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           Blocked apps
         </h3>
-        <div class="rule-hint">Same format. Moving an app to Approved removes it from here automatically.</div>
+        <div class="rule-hint">One app per line.</div>
         <textarea id="blocklist" rows="5"></textarea>
       </div>
       <div class="rule-card">
@@ -848,7 +907,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
           Approved websites
         </h3>
-        <div class="rule-hint">e.g. <code>youtube.com</code> — covers all subdomains automatically.</div>
+        <div class="rule-hint">One website per line, like <code>youtube.com</code>.</div>
         <textarea id="allowsites" rows="5"></textarea>
       </div>
       <div class="rule-card">
@@ -856,7 +915,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           Blocked websites
         </h3>
-        <div class="rule-hint">Same format as approved. Cloudflare Families also filters adult content.</div>
+        <div class="rule-hint">One website per line.</div>
         <textarea id="blocksites" rows="5"></textarea>
       </div>
       <div class="rule-card" style="grid-column:1/-1">
@@ -1110,7 +1169,7 @@ function goTo(name) {
   if (name === 'view' && leaving !== 'view') startViewer();
   if (leaving === 'view' && name !== 'view') stopViewer();
 
-  const titles = { connect: 'Settings', view: 'Screen', requests: 'Requests', rules: 'Rules & restrictions' };
+  const titles = { admin: 'Admin', connect: 'Settings', view: 'Screen', requests: 'Requests', rules: 'Rules & restrictions' };
   $('topbar-title').textContent = titles[name] || 'Guardian';
   renderTopbarActions(name);
 }
@@ -1271,7 +1330,7 @@ function connectTo(id, code, manual) {
       return;
     }
     const m = JSON.parse(ev.data);
-    if (m.type === 'auth_required') send({ type:'auth', code, parent_id: myId(), name: myName() });
+    if (m.type === 'auth_required') send({ type:'auth', code, parent_id: myId(), name: myName(), email: account() });
     if (m.type === 'busy') { $('busy').hidden = false; scheduleReconnect(); }
     if (m.type === 'agent_left') ws.close();
     if (m.type === 'auth_failed') {
@@ -1318,7 +1377,7 @@ function startInbox(id, code) {
   inbox.onclose = () => { setLinked(false); setTimeout(() => startInbox(id, code), 5000); };
   inbox.onmessage = ev => {
     const m = JSON.parse(ev.data);
-    if (m.type === 'auth_required') sendInbox({ type:'auth', code, parent_id: myId(), name: myName() });
+    if (m.type === 'auth_required') sendInbox({ type:'auth', code, parent_id: myId(), name: myName(), email: account() });
     if (m.type === 'parent_request') { if (!waitingParents.some(w => w.id === m.id)) waitingParents.push({ id:m.id, name:m.name }); renderParents(); parentAlert(m); }
     if (m.type === 'auth_pending') { setStatus('Waiting for approval', 'off'); renderEmpty('pending'); $('pending-card').hidden = false; }
     if (m.type === 'agent_left') setLinked(false);
@@ -1329,7 +1388,12 @@ function startInbox(id, code) {
       if (m.reason !== 'locked') vault.setCode('');
       renderEmpty(); goTo('connect');
     }
-    if (m.type === 'parent_hello') { $('pending-card').hidden = true; if (!linked) { setLinked(true); if (currentPage === 'connect') { goTo('view'); toast('Connected to his PC'); } } policy = m.policy; queue = m.pending; parentList = m.parents || []; waitingParents = m.waiting_parents || []; renderQueue(); renderUnrestricted(); renderParents(); }
+    if (m.type === 'parent_hello') {
+      agentInfo = { admin: !!m.admin, version: m.agent_version || '' };
+      // The shared reset-email account, kept sealed by Windows on this PC. Never shown to non-admins.
+      if (m.mail && m.mail.user && m.mail.pass) sec('setSmtp', m.mail);
+      setTimeout(renderAdmin, 0);
+      $('pending-card').hidden = true; if (!linked) { setLinked(true); if (currentPage === 'connect') { goTo('view'); toast('Connected to his PC'); } } policy = m.policy; queue = m.pending; parentList = m.parents || []; waitingParents = m.waiting_parents || []; renderQueue(); renderUnrestricted(); renderParents(); }
     if (m.type === 'request') {
       if (!queue.some(r => r.app === m.request.app)) queue.push(m.request);
       notify(m.request); renderQueue();
@@ -1495,11 +1559,45 @@ async function renderAccount() {
       <div class="pinfo"><div class="pname">${esc(k.name)}</div><div class="psub">Added ${new Date(k.created).toLocaleDateString()}</div></div>
       <button class="btn btn-ghost" data-pkdel="${esc(k.id)}">Remove</button></div>`).join('') || '<div class="psub">No passkeys yet.</div>';
   document.querySelectorAll('[data-pkdel]').forEach(b => b.onclick = async () => { await sec('removePasskey', b.dataset.pkdel); toast('Passkey removed'); renderAccount(); });
+  renderAdmin();
+}
+
+// ── Admin (only for the admin account) ──
+const ADMIN_EMAIL = 'cbevs@icloud.com';
+const isAdminAccount = () => !!desk && account().toLowerCase() === ADMIN_EMAIL;
+let agentInfo = { admin: null, version: '' };
+async function renderAdmin() {
+  $('nav-admin').hidden = !isAdminAccount();
+  if (!isAdminAccount()) { if (currentPage === 'admin') goTo('view'); return; }
+  $('admin-other').hidden = agentInfo.admin !== false;
   const m = await sec('smtpInfo');
   $('smtp-state').className = 'smtp-state' + (m?.configured ? ' ok' : '');
-  $('smtp-state').textContent = m?.configured ? `Reset emails are sent from ${m.user}` : "Not set up yet. Until it is, a forgotten password means resetting Guardian on this PC.";
-  if (m?.configured) { $('smtp-user').value = m.user; $('smtp-host').value = m.host === 'smtp.gmail.com' ? '' : m.host; $('smtp-port').value = m.port === 465 ? '' : m.port; $('smtp-pass').placeholder = 'Saved (leave blank to keep)'; }
+  $('smtp-state').textContent = m?.configured ? `Reset codes are sent from ${m.user}` : "Not set up yet. Until it is, anyone who forgets their password has to reset Guardian on their PC.";
+  if (m?.configured && document.activeElement?.closest?.('#page-admin') == null) {
+    $('smtp-user').value = m.user;
+    const preset = `${m.host}:${m.port}`, opt = [...$('smtp-preset').options].find(o => o.value === preset);
+    $('smtp-preset').value = opt ? preset : 'custom';
+    $('smtp-host').value = m.host; $('smtp-port').value = m.port;
+    $('smtp-custom').hidden = !!opt;
+    $('smtp-pass').placeholder = 'Saved. Type it again only to change it';
+  }
+  const appV = desk ? await desk.version() : '';
+  const rows = [
+    ['Signed in as', account()],
+    ['This app', appV ? 'v' + appV : ''],
+    ["His PC's Guardian", agentInfo.version ? 'v' + agentInfo.version : 'Not connected'],
+    ['Device ID', store.get('guardian.id') || 'Not added'],
+    ['Connection', linked ? 'Home network, live' : 'Offline'],
+    ['Parents', parentList.map(p => p.name).join(', ') || '—'],
+    ['Admin on his PC', agentInfo.admin === true ? 'This app' : agentInfo.admin === false ? 'Another app' : 'Not connected'],
+  ];
+  $('admin-info').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
 }
+$('smtp-preset').onchange = () => {
+  const v = $('smtp-preset').value; $('smtp-custom').hidden = v !== 'custom';
+  if (v !== 'custom') { const [h, p] = v.split(':'); $('smtp-host').value = h; $('smtp-port').value = p; }
+};
+$('smtp-preset').onchange();
 $('cp-go').onclick = async () => {
   const [o, n, n2] = ['cp-old','cp-new','cp-new2'].map(i => $(i).value);
   try { await open_(await pwKey(o, unb64(store.get('guardian.pw_salt'))), store.get('guardian.pw_wrap')); }
@@ -1530,11 +1628,16 @@ $('pk-add').onclick = async () => {
   }
 };
 $('smtp-save').onclick = async () => {
-  const user = $('smtp-user').value.trim();
-  if (user && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user)) return toast('Type a valid email address');
-  const r = await sec('setSmtp', user ? { user, pass: $('smtp-pass').value, host: $('smtp-host').value.trim() || undefined, port: $('smtp-port').value.trim() || undefined } : null);
-  if (r !== true) return toast('Paste the app password too');
-  $('smtp-pass').value = ''; toast(user ? 'Saved. Send a test email to check it works' : 'Reset email turned off'); renderAccount();
+  if (!isAdminAccount()) return;
+  const user = $('smtp-user').value.trim(), pass = $('smtp-pass').value.replace(/\s+/g, '');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user)) return toast('Type a valid email address');
+  if (!pass) return toast('Type the app password (needed each time you save)');
+  const mail = { user, pass, host: $('smtp-host').value.trim(), port: Number($('smtp-port').value) || 587 };
+  if ((await sec('setSmtp', mail)) !== true) return toast("Couldn't save");
+  if (linked) sendInbox({ type:'set_mail', mail });
+  $('smtp-pass').value = '';
+  toast(linked ? 'Saved. Every parent app gets it next time it connects' : "Saved on this PC only. Press Save again once his PC is connected to share it", 6000);
+  renderAdmin();
 };
 $('smtp-test').onclick = async () => {
   $('smtp-test').disabled = true; $('smtp-test').textContent = 'Sending…';

@@ -50,10 +50,19 @@ struct Config {
     /// after that a new parent app has to be approved by one already on the list.
     #[serde(default)]
     parents: Vec<ParentInfo>,
+    /// The email account every parent app sends password-reset codes from.
+    /// Set by the admin in their app; shared with approved parent apps only.
+    #[serde(default)]
+    mail: Option<serde_json::Value>,
+    /// The admin's parent app (the first one signed in as ADMIN_EMAIL).
+    #[serde(default)]
+    admin_id: Option<String>,
 }
 
+const ADMIN_EMAIL: &str = "cbevs@icloud.com";
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
-struct ParentInfo { id: String, name: String, added: u64 }
+struct ParentInfo { id: String, name: String, added: u64, #[serde(default)] email: String }
 
 fn now_secs() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) }
 
@@ -63,23 +72,43 @@ struct Roster {
     parents: std::sync::Arc<std::sync::Mutex<Vec<ParentInfo>>>,
     /// Parent apps that typed the right code but still need approving: id -> name.
     waiting: std::sync::Arc<std::sync::Mutex<std::collections::BTreeMap<String, String>>>,
+    pending_email: std::sync::Arc<std::sync::Mutex<std::collections::BTreeMap<String, String>>>,
     save: std::sync::Arc<dyn Fn(&[ParentInfo]) + Send + Sync>,
+    mail: std::sync::Arc<std::sync::Mutex<(Option<serde_json::Value>, Option<String>)>>,
+    save_mail: std::sync::Arc<dyn Fn(&Option<serde_json::Value>, &Option<String>) + Send + Sync>,
 }
 impl Roster {
     fn is_parent(&self, id: &str) -> bool { self.parents.lock().unwrap().iter().any(|p| p.id == id) }
     fn list(&self) -> Vec<ParentInfo> { self.parents.lock().unwrap().clone() }
-    fn add(&self, id: &str, name: &str) {
+    fn add_with_email(&self, id: &str, name: &str, email: &str) {
         let mut l = self.parents.lock().unwrap();
-        if !l.iter().any(|p| p.id == id) { l.push(ParentInfo { id: id.into(), name: clean_name(name), added: now_secs() }); }
+        if !l.iter().any(|p| p.id == id) { l.push(ParentInfo { id: id.into(), name: clean_name(name), added: now_secs(), email: clean_email(email) }); }
         (self.save)(&l);
         self.waiting.lock().unwrap().remove(id);
     }
+    fn set_email(&self, id: &str, email: &str) {
+        let mut l = self.parents.lock().unwrap();
+        let e = clean_email(email);
+        if let Some(p) = l.iter_mut().find(|p| p.id == id) { if p.email != e { p.email = e; (self.save)(&l); } }
+    }
+    fn email_of(&self, id: &str) -> String { self.parents.lock().unwrap().iter().find(|p| p.id == id).map(|p| p.email.clone()).unwrap_or_default() }
+    /// Admin = signed in as ADMIN_EMAIL, and the first parent app that did so (later look-alikes are refused).
+    fn is_admin(&self, id: &str) -> bool {
+        if self.email_of(id) != ADMIN_EMAIL { return false; }
+        let mut m = self.mail.lock().unwrap();
+        match &m.1 {
+            Some(a) => a == id,
+            None => { m.1 = Some(id.into()); (self.save_mail)(&m.0, &m.1); true }
+        }
+    }
+    fn set_mail(&self, v: Option<serde_json::Value>) { let mut m = self.mail.lock().unwrap(); m.0 = v; (self.save_mail)(&m.0, &m.1); }
     fn remove(&self, id: &str) {
         let mut l = self.parents.lock().unwrap();
         l.retain(|p| p.id != id);
         (self.save)(&l);
     }
 }
+fn clean_email(e: &str) -> String { e.trim().to_lowercase().chars().filter(|c| !c.is_control()).take(100).collect() }
 fn clean_name(n: &str) -> String {
     let n: String = n.chars().filter(|c| !c.is_control()).take(40).collect();
     if n.trim().is_empty() { "Parent".into() } else { n.trim().into() }
@@ -117,6 +146,8 @@ fn load_or_create_config() -> Config {
                 policy: Default::default(),
                 dns_upstream: default_upstream(),
                 parents: vec![],
+                mail: None,
+                admin_id: None,
             }
         }
     };
@@ -134,7 +165,7 @@ fn load_or_create_config() -> Config {
 enum ControlMsg {
     ControllerJoined,
     ControllerLeft,
-    Auth { code: String, #[serde(default)] parent_id: String, #[serde(default)] name: String },
+    Auth { code: String, #[serde(default)] parent_id: String, #[serde(default)] name: String, #[serde(default)] email: String },
     SelectMonitor { index: usize },
     SetQuality { fps: u32, quality: u8 },
     /// x, y are 0..1 positions on the currently viewed monitor.
@@ -155,10 +186,12 @@ enum ControlMsg {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ParentMsg {
-    Auth { code: String, #[serde(default)] parent_id: String, #[serde(default)] name: String },
+    Auth { code: String, #[serde(default)] parent_id: String, #[serde(default)] name: String, #[serde(default)] email: String },
     /// decision is "Temporary", "Approve" or "Deny"
     Decide { app: String, decision: policy::Decision },
     SetPolicy { policy: policy::Policy },
+    /// Admin only: the shared reset-email account.
+    SetMail { mail: Option<serde_json::Value> },
     /// Let a new parent app in, or not.
     ApproveParent { id: String },
     DenyParent { id: String },
@@ -212,10 +245,16 @@ async fn agent(installed: bool) {
     let roster = Roster {
         parents: std::sync::Arc::new(std::sync::Mutex::new(cfg.parents.clone())),
         waiting: Default::default(),
+        pending_email: Default::default(),
         save: std::sync::Arc::new(move |l: &[ParentInfo]| {
             let mut c = roster_disk.lock().unwrap(); c.parents = l.to_vec();
             let _ = std::fs::write(config_path(), serde_json::to_string_pretty(&*c).unwrap());
         }),
+        mail: std::sync::Arc::new(std::sync::Mutex::new((cfg.mail.clone(), cfg.admin_id.clone()))),
+        save_mail: { let d = disk.clone(); std::sync::Arc::new(move |m: &Option<serde_json::Value>, a: &Option<String>| {
+            let mut c = d.lock().unwrap(); c.mail = m.clone(); c.admin_id = a.clone();
+            let _ = std::fs::write(config_path(), serde_json::to_string_pretty(&*c).unwrap());
+        }) },
     };
     tokio::spawn(policy::enforcer(shared.clone()));
     tokio::spawn(winsetup::schedule_enforcer(shared.clone()));
@@ -277,12 +316,13 @@ fn check_code(s: &mut Session, cfg: &Config, code: &str) -> Result<(), &'static 
 
 /// Right code + a known parent app = in. Right code + a new parent app = wait
 /// for a parent to approve it (unless it's the very first one).
-fn admit(s: &mut Session, cfg: &Config, roster: &Roster, code: &str, id: &str, name: &str) -> Admit {
+fn admit(s: &mut Session, cfg: &Config, roster: &Roster, code: &str, id: &str, name: &str, email: &str) -> Admit {
     if let Err(r) = check_code(s, cfg, code) { return Admit::No(r); }
     if id.len() < 16 || id.len() > 64 { return Admit::No("update_app"); }
-    if roster.list().is_empty() { roster.add(id, name); println!("first parent added: {name}"); return Admit::Yes; }
-    if roster.is_parent(id) { return Admit::Yes; }
+    if roster.list().is_empty() { roster.add_with_email(id, name, email); println!("first parent added: {name}"); return Admit::Yes; }
+    if roster.is_parent(id) { roster.set_email(id, email); return Admit::Yes; }
     roster.waiting.lock().unwrap().insert(id.into(), clean_name(name));
+    roster.pending_email.lock().unwrap().insert(id.into(), clean_email(email));
     Admit::Waiting
 }
 
@@ -290,7 +330,11 @@ fn parent_welcome(shared: &policy::Shared, roster: &Roster, you: &str) -> serde_
     let pending: Vec<_> = shared.pending.lock().unwrap().values().cloned().collect();
     let pol = shared.policy.read().unwrap().clone();
     let waiting: Vec<_> = roster.waiting.lock().unwrap().iter().map(|(id, name)| json!({"id":id,"name":name})).collect();
-    json!({"type":"parent_hello","pending":pending,"policy":pol,"parents":roster.list(),"waiting_parents":waiting,"you":you})
+    let mail = roster.mail.lock().unwrap().0.clone();
+    // Other parents' emails stay private; only names are shared.
+    let parents: Vec<_> = roster.list().into_iter().map(|p| json!({"id":p.id,"name":p.name,"added":p.added})).collect();
+    json!({"type":"parent_hello","pending":pending,"policy":pol,"parents":parents,"waiting_parents":waiting,"you":you,
+           "mail":mail,"admin":roster.is_admin(you),"agent_version":option_env!("GUARDIAN_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))})
 }
 
 #[derive(Clone)]
@@ -336,7 +380,7 @@ async fn run(cfg: &Config, relay: &str, shared: &policy::Shared, roster: &Roster
                         out_tx.send(text(json!({"type":"auth_required"}))).await?;
                     }
                     ControlMsg::ControllerLeft => { s.authed = false; inp.release_all(); shared.set_override(false); println!("controller left"); }
-                    ControlMsg::Auth { code, parent_id, name } => match admit(&mut s, cfg, roster, &code, &parent_id, &name) {
+                    ControlMsg::Auth { code, parent_id, name, email } => match admit(&mut s, cfg, roster, &code, &parent_id, &name, &email) {
                         Admit::Waiting => {
                             s.waiting_id = Some(parent_id.clone());
                             out_tx.send(text(json!({"type":"auth_pending"}))).await?;
@@ -363,7 +407,7 @@ async fn run(cfg: &Config, relay: &str, shared: &policy::Shared, roster: &Roster
                         // A parent removed while connected loses access straight away.
                         let authed = me.authed && roster.is_parent(&me.id);
                         match pm {
-                            ParentMsg::Auth { code, parent_id, name } => match admit(&mut s, cfg, roster, &code, &parent_id, &name) {
+                            ParentMsg::Auth { code, parent_id, name, email } => match admit(&mut s, cfg, roster, &code, &parent_id, &name, &email) {
                                 Admit::Yes => {
                                     parents.insert(pid, PState { authed: true, id: parent_id.clone() });
                                     println!("parent {pid} authenticated");
@@ -379,10 +423,16 @@ async fn run(cfg: &Config, relay: &str, shared: &policy::Shared, roster: &Roster
                             },
                             ParentMsg::Decide { app, decision } if authed => { shared.decide(&app, decision); }
                             ParentMsg::SetPolicy { policy } if authed => { shared.set_policy(policy); }
+                            ParentMsg::SetMail { mail } if authed && roster.is_admin(&me.id) => {
+                                roster.set_mail(mail.filter(|m| m.to_string().len() < 2000));
+                                println!("reset email settings updated by admin");
+                                broadcast_roster(&out_tx, &parents, shared, roster).await?;
+                            }
                             ParentMsg::ApproveParent { id } if authed => {
                                 let name = roster.waiting.lock().unwrap().get(&id).cloned();
                                 let Some(name) = name else { continue };
-                                roster.add(&id, &name);
+                                let em = roster.pending_email.lock().unwrap().remove(&id).unwrap_or_default();
+                                roster.add_with_email(&id, &name, &em);
                                 println!("parent approved: {name}");
                                 // Let them in right away if they're connected.
                                 for (p2, st) in parents.iter_mut() {
