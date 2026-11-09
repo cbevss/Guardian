@@ -236,17 +236,31 @@ async function api(req, env, path) {
   return fail('not_found', 404);
 }
 
+// Creates the database tables the first time (no setup step needed).
+let schemaReady = false;
+async function ensureSchema(env) {
+  if (schemaReady) return;
+  await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS accounts (email TEXT PRIMARY KEY, pw_hash TEXT NOT NULL, pw_salt TEXT NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, fails INTEGER NOT NULL DEFAULT 0, locked_until INTEGER NOT NULL DEFAULT 0)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS codes (email TEXT NOT NULL, purpose TEXT NOT NULL, hash TEXT NOT NULL, expires INTEGER NOT NULL, tries INTEGER NOT NULL DEFAULT 0, sent INTEGER NOT NULL, PRIMARY KEY (email, purpose))'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)'),
+  ]);
+  schemaReady = true;
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) {
-      try { return await api(req, env, url.pathname); }
+      try { await ensureSchema(env); return await api(req, env, url.pathname); }
       catch (e) { return fail('server_error', 500); }
     }
     return env.ASSETS.fetch(req); // the website
   },
   // Tidy up old sessions and codes once a day.
   async scheduled(_e, env) {
+    await ensureSchema(env);
     await env.DB.prepare('DELETE FROM sessions WHERE expires < ?').bind(now()).run();
     await env.DB.prepare('DELETE FROM codes WHERE expires < ?').bind(now()).run();
     await env.DB.prepare('DELETE FROM accounts WHERE verified = 0 AND created < ?').bind(now() - 86_400_000).run();
