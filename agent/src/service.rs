@@ -113,8 +113,24 @@ fn service_main(_args: Vec<OsString>) {
     };
     set(ServiceState::Running, ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN);
 
+    // Auto-update: first check 2 minutes after start, then every 3 hours.
+    crate::updater::cleanup();
+    let (upd_tx, upd_rx) = std::sync::mpsc::channel::<()>();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(120));
+        loop {
+            if crate::updater::check_and_install() { let _ = upd_tx.send(()); return; }
+            std::thread::sleep(Duration::from_secs(3 * 3600));
+        }
+    });
+
     let mut child: Option<session::Child> = None;
     loop {
+        if upd_rx.try_recv().is_ok() {
+            // New version is in place: stop, and Windows restarts the service (failure actions) on the new exe.
+            if let Some(c) = child.take() { c.kill(); }
+            std::process::exit(1);
+        }
         let active = session::active_session();
         let needs_start = match &child {
             None => active.is_some(),

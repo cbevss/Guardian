@@ -583,6 +583,7 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
     <div>
       <div class="brand-name">Guardian</div>
       <div class="brand-ver" id="sidebar-ver">Not connected</div>
+      <div class="brand-ver" id="app-ver"></div>
     </div>
   </div>
 
@@ -758,6 +759,8 @@ let ws = null, inbox = null, control = false, lastMove = 0;
 let policy = { blocked_apps:[], allowed_apps:[], ask_unknown:true, ask_unknown_sites:true };
 let queue = [];
 let shownPolicy = null;
+
+window.guardianDesktop?.version().then(v => { $('app-ver').textContent = 'v' + v; });
 
 // ── Storage ──────────────────────────────────────────────────
 const store = {
@@ -1014,11 +1017,13 @@ $('modal-approve').onclick = () => { const a = $('req-modal').dataset.app; decid
 $('req-modal').addEventListener('click', e => { if (e.target === $('req-modal')) { /* can't dismiss */ } });
 
 function notify(r) {
+  window.guardianDesktop?.request();
   if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') {
     if (currentPage !== 'requests') showModal();
     return;
   }
-  try { new Notification('Guardian: access request', { body:`He wants to ${r.kind==='site'?'visit':'open'} ${r.name||r.app}`, tag:r.app }); } catch {}
+  try { const n = new Notification('Guardian: access request', { body:`He wants to ${r.kind==='site'?'visit':'open'} ${r.name||r.app}`, tag:r.app }); n.onclick = () => { window.guardianDesktop?.show(); goTo('requests'); }; } catch {}
+  showModal();
 }
 
 // ── Rules page ────────────────────────────────────────────────

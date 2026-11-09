@@ -23,6 +23,8 @@ mod dns;
 mod policy;
 #[cfg(windows)]
 mod service;
+#[cfg(windows)]
+mod updater;
 mod winsetup;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]

@@ -1,0 +1,48 @@
+{
+  "name": "guardian-desktop",
+  "productName": "Guardian",
+  "version": "1.0.0",
+  "description": "Guardian: watch over and manage your child's PC",
+  "author": "cbevss",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "release": "electron-builder --win --x64 --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.cbevss.guardian",
+    "productName": "Guardian",
+    "files": ["main.js", "preload.js", "build/icon.png", "package.json"],
+    "extraResources": [
+      { "from": "../target/release/guardian-relay.exe", "to": "guardian-relay.exe" },
+      { "from": "../relay/web", "to": "web" }
+    ],
+    "directories": { "buildResources": "build", "output": "../dist/desktop" },
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.ico",
+      "executableName": "Guardian"
+    },
+    "nsis": {
+      "artifactName": "Guardian-Setup.${ext}",
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Guardian",
+      "uninstallDisplayName": "Guardian",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "publish": [{ "provider": "github", "owner": "cbevss", "repo": "Guardian", "releaseType": "release" }]
+  }
+}
