@@ -457,6 +457,21 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
 }
 .toggle-row input { flex-shrink: 0; }
 
+/* ── Lock screen ── */
+#lock { position:fixed; inset:0; z-index:500; background:radial-gradient(ellipse at 50% 30%, #141a2c 0%, var(--bg) 70%); display:flex; align-items:center; justify-content:center; padding:16px; transition: opacity .35s, transform .35s; }
+#lock.gone { opacity:0; transform: scale(1.03); pointer-events:none; }
+.lock-card { width:100%; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; animation: cardIn .35s ease both; }
+.lock-card.shake { animation: shake .35s; }
+@keyframes shake { 20%,60% { transform: translateX(-7px); } 40%,80% { transform: translateX(7px); } }
+.lock-shield { filter: drop-shadow(0 8px 24px rgba(79,124,255,.35)); margin-bottom:6px; }
+.lock-card h2 { font-size:20px; font-weight:700; }
+.lock-sub { font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:6px; }
+.lock-card input { width:100%; text-align:center; padding:11px; font-size:15px; }
+.lock-card .btn { width:100%; justify-content:center; padding:11px; }
+.lock-err { min-height:18px; font-size:12.5px; color:var(--bad); }
+.lock-link { background:none; border:none; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
+.lock-link:hover { color:var(--fg); }
+
 /* ── Parents ── */
 #page-connect { gap: 16px; justify-content: flex-start; padding-top: 40px; }
 .plist { display:flex; flex-direction:column; gap:8px; }
@@ -593,6 +608,26 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
 </style>
 </head>
 <body>
+
+<!-- ── Lock screen ── -->
+<div id="lock">
+  <div class="lock-card" id="lock-card">
+    <svg width="54" height="54" viewBox="0 0 32 32" fill="none" class="lock-shield">
+      <defs><linearGradient id="lsg" x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4f7cff"/><stop offset="100%" stop-color="#2353e8"/></linearGradient></defs>
+      <path d="M16 2 L28 7 L28 16 C28 22.5 22.5 27.5 16 30 C9.5 27.5 4 22.5 4 16 L4 7 Z" fill="url(#lsg)"/>
+      <rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="white" opacity=".95"/>
+      <path d="M13 16 L13 13 C13 10.8 19 10.8 19 13 L19 16" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".95"/>
+      <circle cx="16" cy="19.5" r="1.2" fill="#2353e8"/><rect x="15.1" y="19.5" width="1.8" height="2.5" rx="0.9" fill="#2353e8"/>
+    </svg>
+    <h2 id="lock-title">Enter your password</h2>
+    <div class="lock-sub" id="lock-sub"></div>
+    <input type="password" id="lock-pw" placeholder="Password" autocomplete="current-password">
+    <input type="password" id="lock-pw2" placeholder="Type it again" autocomplete="new-password" hidden>
+    <div class="lock-err" id="lock-err"></div>
+    <button class="btn btn-primary" id="lock-go">Unlock</button>
+    <button class="lock-link" id="lock-forgot" hidden>Forgot password?</button>
+  </div>
+</div>
 
 <!-- ── Sidebar ─────────────────────────────────────────────── -->
 <nav id="sidebar">
@@ -842,7 +877,80 @@ const store = {
   set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} },
 };
 $('devid').value = store.get('guardian.id');
-if (store.get('guardian.code')) { $('code').value = store.get('guardian.code'); $('remember').checked = true; }
+
+// ── App password ──
+// The saved pairing code is encrypted with a key made from the app password, so without
+// the password nobody can connect from this app, even with access to this PC's files.
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = a => btoa(String.fromCharCode(...new Uint8Array(a)));
+const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+async function deriveKey(pw, salt) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+}
+async function seal(key, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  return b64(iv) + '.' + b64(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc.encode(text)));
+}
+async function open_(key, blob) {
+  const [iv, ct] = blob.split('.');
+  return dec.decode(await crypto.subtle.decrypt({ name:'AES-GCM', iv: unb64(iv) }, key, unb64(ct)));
+}
+const vault = {
+  key: null, code: '',
+  async setCode(c) { this.code = c; if (this.key) store.set('guardian.code_enc', c ? await seal(this.key, c) : ''); },
+};
+store.set('guardian.code', ''); // never kept in plain text
+
+let lockFails = 0, lockUntil = 0;
+function showLock() {
+  const hasPw = !!store.get('guardian.pw_check');
+  $('lock-title').textContent = hasPw ? 'Enter your password' : 'Create a password';
+  $('lock-sub').textContent = hasPw ? 'Guardian is locked. Your password is needed each time the app starts.'
+    : "You'll type this each time Guardian starts, so nobody else can see his screen from this PC.";
+  $('lock-pw2').hidden = hasPw; $('lock-forgot').hidden = !hasPw;
+  $('lock-go').textContent = hasPw ? 'Unlock' : 'Set password';
+  setTimeout(() => $('lock-pw').focus(), 50);
+}
+async function tryUnlock() {
+  const pw = $('lock-pw').value, err = m => { $('lock-err').textContent = m; $('lock-card').classList.remove('shake'); void $('lock-card').offsetWidth; $('lock-card').classList.add('shake'); };
+  if (Date.now() < lockUntil) return err(`Too many tries. Wait ${Math.ceil((lockUntil - Date.now())/1000)} seconds`);
+  const hasPw = !!store.get('guardian.pw_check');
+  if (!hasPw) {
+    if (pw.length < 6) return err('Use at least 6 characters');
+    if (pw !== $('lock-pw2').value) return err("The two passwords don't match");
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    vault.key = await deriveKey(pw, salt);
+    store.set('guardian.pw_salt', b64(salt));
+    store.set('guardian.pw_check', await seal(vault.key, 'guardian'));
+  } else {
+    $('lock-go').disabled = true; $('lock-go').textContent = 'Checking…';
+    try {
+      const key = await deriveKey(pw, unb64(store.get('guardian.pw_salt')));
+      if (await open_(key, store.get('guardian.pw_check')) !== 'guardian') throw 0;
+      vault.key = key;
+      const c = store.get('guardian.code_enc'); vault.code = c ? await open_(key, c) : '';
+    } catch {
+      $('lock-go').disabled = false; $('lock-go').textContent = 'Unlock';
+      if (++lockFails >= 5) { lockFails = 0; lockUntil = Date.now() + 30000; }
+      return err('Wrong password');
+    }
+  }
+  $('lock-pw').value = $('lock-pw2').value = '';
+  $('lock').classList.add('gone'); setTimeout(() => $('lock').remove(), 400);
+  afterUnlock();
+}
+$('lock-go').onclick = tryUnlock;
+['lock-pw','lock-pw2'].forEach(i => $(i).addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); }));
+$('lock-forgot').onclick = () => {
+  const b = $('lock-forgot');
+  if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'This removes his saved PC from this app. Click again to reset'; return; }
+  ['guardian.pw_check','guardian.pw_salt','guardian.code_enc'].forEach(k => store.set(k, ''));
+  b.dataset.sure = ''; $('lock-err').textContent = 'Reset. Create a new password, then add his PC again in Settings.';
+  showLock();
+};
+showLock();
+
 
 // ── Page routing ─────────────────────────────────────────────
 const pages = {};
@@ -873,7 +981,7 @@ setTimeout(() => pages['view'].classList.add('shown'), 50);
 function setNavEnabled() {} // every page is always open; pages show an empty state until his PC is linked
 
 function renderEmpty(state) {
-  const saved = store.get('guardian.id') && store.get('guardian.code');
+  const saved = store.get('guardian.id') && vault.code;
   if (state === 'pending') {
     document.querySelectorAll('[data-es]').forEach(e => e.textContent = "The pairing code was right. Now another parent needs to approve this app in their Guardian Settings. It connects as soon as they do.");
     document.querySelectorAll('[data-goto-settings]').forEach(b => b.hidden = true);
@@ -902,7 +1010,7 @@ function setLinked(on) {
 }
 // His screen only streams while the Screen page is open, so two parents don't fight over it.
 function startViewer() {
-  const id = store.get('guardian.id'), code = store.get('guardian.code') || $('code').value.trim();
+  const id = store.get('guardian.id'), code = vault.code || $('code').value.trim();
   if (!linked || !id || (ws && ws.readyState <= 1)) return;
   $('busy').hidden = true;
   connectTo(id, code, false);
@@ -991,7 +1099,7 @@ $('connect').onclick = () => {
   if (!/^\d{9}$/.test(id)) { toast('Device ID must be 9 digits'); return; }
   if (!code) { toast('Type the pairing code'); return; }
   store.set('guardian.id', id);
-  store.set('guardian.code', $('remember').checked ? code : '');
+  vault.setCode($('remember').checked ? code : '');
   store.set('guardian.name', $('pname').value.trim());
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   stopViewer();
@@ -1000,7 +1108,7 @@ $('connect').onclick = () => {
   startInbox(id, code);
 };
 $('forget').onclick = () => {
-  store.set('guardian.id', ''); store.set('guardian.code', '');
+  store.set('guardian.id', ''); vault.setCode('');
   $('devid').value = ''; $('code').value = '';
   clearTimeout(retry);
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
@@ -1028,8 +1136,8 @@ function connectTo(id, code, manual) {
     if (m.type === 'auth_failed') {
       const why = { locked:'Too many wrong codes. Locked for 5 minutes', denied:'Another parent declined this app', removed:'This app was removed as a parent', update_app:'Update Guardian to connect' }[m.reason] || 'Wrong pairing code. Check it in Settings';
       toast(why);
-      if (m.reason === 'wrong_code') store.set('guardian.code', '');
-      if (m.reason === 'denied' || m.reason === 'removed') { store.set('guardian.code', ''); }
+      if (m.reason === 'wrong_code') vault.setCode('');
+      if (m.reason === 'denied' || m.reason === 'removed') { vault.setCode(''); }
       ws.close();
 
     }
@@ -1053,10 +1161,12 @@ function connectTo(id, code, manual) {
   };
 }
 
-renderEmpty();
-setStatus(store.get('guardian.id') ? 'Connecting…' : 'No PC added yet', 'off');
-if (store.get('guardian.id') && store.get('guardian.code')) {
-  startInbox(store.get('guardian.id'), store.get('guardian.code'));
+// Runs once the app is unlocked.
+function afterUnlock() {
+  if (vault.code) $('code').value = vault.code;
+  renderEmpty();
+  setStatus(store.get('guardian.id') ? 'Connecting…' : 'No PC added yet', 'off');
+  if (store.get('guardian.id') && vault.code) startInbox(store.get('guardian.id'), vault.code);
 }
 
 // ── Inbox (approval requests) ─────────────────────────────────
@@ -1075,7 +1185,7 @@ function startInbox(id, code) {
       inbox.onclose = null; inbox.close(); setLinked(false);
       const why = { locked:'Too many wrong codes. Locked for 5 minutes', denied:'Another parent declined this app', removed:'This app was removed as a parent', update_app:'Update Guardian to connect' }[m.reason] || 'Wrong pairing code. Check it in Settings';
       toast(why, 5000);
-      if (m.reason !== 'locked') store.set('guardian.code', '');
+      if (m.reason !== 'locked') vault.setCode('');
       renderEmpty(); goTo('connect');
     }
     if (m.type === 'parent_hello') { $('pending-card').hidden = true; if (!linked) { setLinked(true); if (currentPage === 'connect') { goTo('view'); toast('Connected to his PC'); } } policy = m.policy; queue = m.pending; parentList = m.parents || []; waitingParents = m.waiting_parents || []; renderQueue(); renderUnrestricted(); renderParents(); }
