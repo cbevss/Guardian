@@ -42,6 +42,14 @@ jobs:
           if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\child.iss
 
+      - name: Create the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${GUARDIAN_VERSION}" --target "$GITHUB_SHA" --title "Guardian ${GUARDIAN_VERSION}" \
+            --notes "$(git log -1 --pretty=%s)"
+
       - name: Build and publish the Guardian app
         working-directory: desktop
         env:
