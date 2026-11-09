@@ -94,13 +94,22 @@ async fn parent_ws(ws: WebSocketUpgrade, Query(p): Query<Params>, State(s): Stat
 
 fn txt(v: Value) -> Message { Message::Text(v.to_string()) }
 
+async fn sink_busy(mut sock: WebSocket) -> Result<(), axum::Error> {
+    sock.send(txt(json!({"type":"busy"}))).await?;
+    sock.close().await
+}
+
 async fn bridge(sock: WebSocket, id: String, state: AppState, mut role: Role) {
-    let (mut sink, mut stream) = sock.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 
     {
         let mut rooms = state.rooms.lock().await;
         let room = rooms.entry(id.clone()).or_default();
+        // Only one parent watches his screen at a time; the other is told who's busy instead of kicking them off.
+        if role == Role::Controller && room.controller.as_ref().map_or(false, |c| !c.is_closed()) {
+            let _ = sink_busy(sock).await;
+            return;
+        }
         match role {
             Role::Agent => {
                 room.agent = Some(tx.clone());
@@ -122,6 +131,7 @@ async fn bridge(sock: WebSocket, id: String, state: AppState, mut role: Role) {
         }
     }
 
+    let (mut sink, mut stream) = sock.split();
     let writer = tokio::spawn(async move {
         while let Some(m) = rx.recv().await {
             if sink.send(m).await.is_err() { break; }
@@ -157,7 +167,12 @@ async fn bridge(sock: WebSocket, id: String, state: AppState, mut role: Role) {
     let mut rooms = state.rooms.lock().await;
     if let Some(room) = rooms.get_mut(&id) {
         match role {
-            Role::Agent => if room.agent.as_ref().map_or(false, |t| t.same_channel(&tx)) { room.agent = None; },
+            Role::Agent => if room.agent.as_ref().map_or(false, |t| t.same_channel(&tx)) {
+                room.agent = None;
+                // Let the parent apps know his PC went offline.
+                if let Some(c) = &room.controller { let _ = c.send(txt(json!({"type":"agent_left"}))); }
+                for p in room.parents.values() { let _ = p.send(txt(json!({"type":"agent_left"}))); }
+            },
             Role::Controller => if room.controller.as_ref().map_or(false, |t| t.same_channel(&tx)) {
                 room.controller = None;
                 if let Some(a) = &room.agent { let _ = a.send(txt(json!({"type":"controller_left"}))); }

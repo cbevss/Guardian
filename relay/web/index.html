@@ -29,6 +29,7 @@
   color-scheme: dark;
 }
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+[hidden] { display:none !important; }
 body {
   font-family: 'Inter', system-ui, sans-serif;
   background: var(--bg);
@@ -456,12 +457,27 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
 }
 .toggle-row input { flex-shrink: 0; }
 
+/* ── Parents ── */
+#page-connect { gap: 16px; justify-content: flex-start; padding-top: 40px; }
+.plist { display:flex; flex-direction:column; gap:8px; }
+.prow { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--bg); border:1px solid var(--border); border-radius:9px; animation: cardIn .2s ease both; }
+.prow.waiting { border-color: rgba(245,166,35,.4); background: rgba(245,166,35,.06); }
+.pav { width:30px; height:30px; border-radius:50%; background:rgba(79,124,255,.18); color:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0; }
+.prow.waiting .pav { background:rgba(245,166,35,.18); color:var(--warn); }
+.pinfo { flex:1; min-width:0; }
+.pname { font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.psub { font-size:11.5px; color:var(--muted); }
+.ptag { font-size:10.5px; font-weight:600; color:var(--accent); background:rgba(79,124,255,.12); padding:2px 7px; border-radius:5px; }
+.prow .btn { padding:5px 10px; font-size:12px; }
+
 /* ── Not linked yet ── */
 .empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted); text-align:center; padding:40px 16px; min-height:320px; animation: cardIn .25s ease both; }
 .empty-state svg { opacity:.35; margin-bottom:4px; }
 .es-title { color:var(--fg); font-size:16px; font-weight:600; }
 .es-sub { font-size:13px; max-width:360px; line-height:1.5; margin-bottom:6px; }
 body.linked .empty-state { display:none; }
+body.linked #busy:not([hidden]) { display:flex !important; }
+body.linked #busy:not([hidden]) ~ #screen-wrap { display:none; }
 body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
 
 /* ── Unrestricted ── */
@@ -654,6 +670,10 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
       <div class="rule-hint" style="margin-top:-8px">Type the Device ID and pairing code shown when Guardian was installed on his PC. You only need to do this once.</div>
       <div class="connect-fields">
         <div class="field">
+          <label>Your name</label>
+          <input id="pname" type="text" placeholder="e.g. Mum" maxlength="40">
+        </div>
+        <div class="field">
           <label>Device ID</label>
           <input id="devid" type="text" placeholder="123456789" inputmode="numeric" maxlength="9">
         </div>
@@ -669,11 +689,24 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
         <button class="btn btn-ghost" id="forget" style="justify-content:center">Forget this PC</button>
       </div>
     </div>
+
+    <div class="connect-card" id="pending-card" hidden style="border-color:rgba(245,166,35,.4)">
+      <h2 style="font-size:16px;color:var(--warn)">Waiting for approval</h2>
+      <div class="rule-hint">The pairing code was right. Ask the parent who set up Guardian to open Settings in their app and press Approve next to your name. You'll connect the moment they do.</div>
+    </div>
+
+    <div class="connect-card" id="parents-card" hidden>
+      <h2 style="font-size:17px">Parents</h2>
+      <div class="rule-hint" style="margin-top:-8px">Only these parent apps can see his screen and change his rules. A new parent app needs approving here first, even with the right pairing code.</div>
+      <div id="waiting-list" class="plist"></div>
+      <div id="parent-list" class="plist"></div>
+    </div>
   </div>
 
   <!-- View page -->
   <div class="page active" id="page-view">
     <div class="empty-state"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg><div class="es-title">His screen will show here</div><div class="es-sub" data-es></div><button class="btn btn-primary" data-goto-settings>Open Settings</button></div>
+    <div class="empty-state" id="busy" hidden style="display:none"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><div class="es-title">Another parent is watching his screen</div><div class="es-sub">Only one parent can watch at a time. It'll show here as soon as they leave the Screen page.</div></div>
     <div id="screen-wrap">
       <canvas id="screen" tabindex="0"></canvas>
       <div id="control-banner">🟡 Controlling — restrictions paused</div>
@@ -791,6 +824,18 @@ let shownPolicy = null;
 
 window.guardianDesktop?.version().then(v => { $('app-ver').textContent = 'v' + v; });
 
+// ── This parent app's identity (random, never shown) ──
+function myId() {
+  let id = store.get('guardian.parent_id');
+  if (!id) {
+    const b = new Uint8Array(16); crypto.getRandomValues(b);
+    id = [...b].map(x => x.toString(16).padStart(2,'0')).join('');
+    store.set('guardian.parent_id', id);
+  }
+  return id;
+}
+const myName = () => store.get('guardian.name') || 'Parent';
+
 // ── Storage ──────────────────────────────────────────────────
 const store = {
   get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
@@ -811,7 +856,10 @@ function goTo(name) {
   if (old) { old.classList.remove('shown'); setTimeout(() => { old.classList.remove('active'); }, 200); }
   next.classList.add('active');
   requestAnimationFrame(() => next.classList.add('shown'));
+  const leaving = currentPage;
   currentPage = name;
+  if (name === 'view' && leaving !== 'view') startViewer();
+  if (leaving === 'view' && name !== 'view') stopViewer();
 
   const titles = { connect: 'Settings', view: 'Screen', requests: 'Requests', rules: 'Rules & restrictions' };
   $('topbar-title').textContent = titles[name] || 'Guardian';
@@ -824,8 +872,13 @@ setTimeout(() => pages['view'].classList.add('shown'), 50);
 
 function setNavEnabled() {} // every page is always open; pages show an empty state until his PC is linked
 
-function renderEmpty() {
+function renderEmpty(state) {
   const saved = store.get('guardian.id') && store.get('guardian.code');
+  if (state === 'pending') {
+    document.querySelectorAll('[data-es]').forEach(e => e.textContent = "The pairing code was right. Now another parent needs to approve this app in their Guardian Settings. It connects as soon as they do.");
+    document.querySelectorAll('[data-goto-settings]').forEach(b => b.hidden = true);
+    return;
+  }
   document.querySelectorAll('[data-es]').forEach(e => e.textContent = saved
     ? "His PC isn't reachable right now. Guardian keeps trying in the background and connects as soon as it's on."
     : "Add his PC in Settings with the Device ID and pairing code from the install. Everything else works without it.");
@@ -837,8 +890,29 @@ document.querySelectorAll('[data-goto-settings]').forEach(b => b.onclick = () =>
 let retry = null;
 function scheduleReconnect() {
   clearTimeout(retry);
-  if (!(store.get('guardian.id') && store.get('guardian.code'))) return;
-  retry = setTimeout(() => { if (!ws || ws.readyState > 1) connectTo(store.get('guardian.id'), store.get('guardian.code'), false); }, 10000);
+  if (currentPage !== 'view' || !linked) return;
+  retry = setTimeout(startViewer, 8000);
+}
+let linked = false;
+function setLinked(on) {
+  linked = on;
+  document.body.classList.toggle('linked', on);
+  if (on) { setStatus('Live', 'live'); if (currentPage === 'view') startViewer(); }
+  else { stopViewer(); setStatus(store.get('guardian.id') ? 'His PC is offline' : 'No PC added yet', 'off'); renderEmpty(); }
+}
+// His screen only streams while the Screen page is open, so two parents don't fight over it.
+function startViewer() {
+  const id = store.get('guardian.id'), code = store.get('guardian.code') || $('code').value.trim();
+  if (!linked || !id || (ws && ws.readyState <= 1)) return;
+  $('busy').hidden = true;
+  connectTo(id, code, false);
+}
+function stopViewer() {
+  clearTimeout(retry);
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
+  if (control) { control = false; canvas.classList.remove('control'); $('control-banner').classList.remove('show'); }
+  document.body.classList.remove('viewing');
+  renderTopbarActions(currentPage);
 }
 
 function renderTopbarActions(page) {
@@ -868,8 +942,8 @@ function renderTopbarActions(page) {
 
     const discBtn = document.createElement('button');
     discBtn.className = 'btn btn-bad';
-    discBtn.textContent = 'Disconnect';
-    discBtn.onclick = () => ws && ws.close();
+    discBtn.textContent = 'Stop watching';
+    discBtn.onclick = () => goTo('requests');
     bar.appendChild(discBtn);
   }
   if (page === 'requests') {
@@ -899,9 +973,8 @@ const wsUrl = p => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${locatio
 
 // ── Connection ───────────────────────────────────────────────
 function onConnected(on) {
-  setNavEnabled(on);
-  document.body.classList.toggle('linked', on);
-  if (!on) { setControl(false); setStatus(store.get('guardian.id') ? 'His PC is offline' : 'No PC added yet', 'off'); renderEmpty(); scheduleReconnect(); }
+  document.body.classList.toggle('viewing', on);
+  if (!on) { if (control) { control = false; canvas.classList.remove('control'); $('control-banner').classList.remove('show'); } ws = null; renderTopbarActions(currentPage); scheduleReconnect(); }
 }
 function setControl(on) {
   control = on;
@@ -919,10 +992,12 @@ $('connect').onclick = () => {
   if (!code) { toast('Type the pairing code'); return; }
   store.set('guardian.id', id);
   store.set('guardian.code', $('remember').checked ? code : '');
+  store.set('guardian.name', $('pname').value.trim());
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-  if (ws && ws.readyState <= 1) { ws.onclose = null; ws.close(); }
+  stopViewer();
   if (inbox && inbox.readyState <= 1) { inbox.onclose = null; inbox.close(); }
-  connectTo(id, code, true);
+  setStatus('Connecting…', 'off');
+  startInbox(id, code);
 };
 $('forget').onclick = () => {
   store.set('guardian.id', ''); store.set('guardian.code', '');
@@ -930,16 +1005,13 @@ $('forget').onclick = () => {
   clearTimeout(retry);
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
   if (inbox) { inbox.onclose = null; inbox.close(); inbox = null; }
-  queue = []; renderQueue(); onConnected(false);
+  queue = []; parentList = []; waitingParents = []; renderQueue(); renderParents(); setLinked(false);
   toast('His PC was removed from this app');
 };
 
 function connectTo(id, code, manual) {
-  startInbox(id, code);
   ws = new WebSocket(wsUrl('/ws/controller'));
   ws.binaryType = 'blob';
-  setStatus('Connecting…', 'off');
-  ws.onopen  = () => setStatus('Waiting for his PC…', 'off');
   ws.onclose = () => { onConnected(false); };
   ws.onmessage = async ev => {
     if (typeof ev.data !== 'string') {
@@ -950,19 +1022,21 @@ function connectTo(id, code, manual) {
       return;
     }
     const m = JSON.parse(ev.data);
-    if (m.type === 'auth_required') send({ type:'auth', code });
+    if (m.type === 'auth_required') send({ type:'auth', code, parent_id: myId(), name: myName() });
+    if (m.type === 'busy') { $('busy').hidden = false; scheduleReconnect(); }
+    if (m.type === 'agent_left') ws.close();
     if (m.type === 'auth_failed') {
-      toast(m.reason === 'locked' ? 'Too many wrong codes. Locked for 5 minutes' : 'Wrong pairing code. Check it in Settings');
-      if (m.reason !== 'locked') store.set('guardian.code', '');
+      const why = { locked:'Too many wrong codes. Locked for 5 minutes', denied:'Another parent declined this app', removed:'This app was removed as a parent', update_app:'Update Guardian to connect' }[m.reason] || 'Wrong pairing code. Check it in Settings';
+      toast(why);
+      if (m.reason === 'wrong_code') store.set('guardian.code', '');
+      if (m.reason === 'denied' || m.reason === 'removed') { store.set('guardian.code', ''); }
       ws.close();
-      if (!manual) goTo('connect');
+
     }
     if (m.type === 'hello') {
       policy = m.policy || policy;
       renderUnrestricted();
-      setStatus('Live', 'live');
       onConnected(true);
-      if (currentPage === 'connect') { goTo('view'); toast('Connected to his PC'); }
       renderTopbarActions('view');
       // Build monitor select
       const sel = $('monitors');
@@ -982,7 +1056,7 @@ function connectTo(id, code, manual) {
 renderEmpty();
 setStatus(store.get('guardian.id') ? 'Connecting…' : 'No PC added yet', 'off');
 if (store.get('guardian.id') && store.get('guardian.code')) {
-  connectTo(store.get('guardian.id'), store.get('guardian.code'), false);
+  startInbox(store.get('guardian.id'), store.get('guardian.code'));
 }
 
 // ── Inbox (approval requests) ─────────────────────────────────
@@ -990,12 +1064,21 @@ function startInbox(id, code) {
   if (inbox?.readyState <= 1) return;
   const url = `${location.protocol === 'https:' ? 'wss':'ws'}://${location.host}/ws/parent?id=${id}`;
   inbox = new WebSocket(url);
-  inbox.onclose = () => setTimeout(() => startInbox(id, code), 5000);
+  inbox.onclose = () => { setLinked(false); setTimeout(() => startInbox(id, code), 5000); };
   inbox.onmessage = ev => {
     const m = JSON.parse(ev.data);
-    if (m.type === 'auth_required') sendInbox({ type:'auth', code });
-    if (m.type === 'auth_failed') { inbox.onclose = null; inbox.close(); }
-    if (m.type === 'parent_hello') { policy = m.policy; queue = m.pending; renderQueue(); renderUnrestricted(); }
+    if (m.type === 'auth_required') sendInbox({ type:'auth', code, parent_id: myId(), name: myName() });
+    if (m.type === 'parent_request') { if (!waitingParents.some(w => w.id === m.id)) waitingParents.push({ id:m.id, name:m.name }); renderParents(); parentAlert(m); }
+    if (m.type === 'auth_pending') { setStatus('Waiting for approval', 'off'); renderEmpty('pending'); $('pending-card').hidden = false; }
+    if (m.type === 'agent_left') setLinked(false);
+    if (m.type === 'auth_failed') {
+      inbox.onclose = null; inbox.close(); setLinked(false);
+      const why = { locked:'Too many wrong codes. Locked for 5 minutes', denied:'Another parent declined this app', removed:'This app was removed as a parent', update_app:'Update Guardian to connect' }[m.reason] || 'Wrong pairing code. Check it in Settings';
+      toast(why, 5000);
+      if (m.reason !== 'locked') store.set('guardian.code', '');
+      renderEmpty(); goTo('connect');
+    }
+    if (m.type === 'parent_hello') { $('pending-card').hidden = true; if (!linked) { setLinked(true); if (currentPage === 'connect') { goTo('view'); toast('Connected to his PC'); } } policy = m.policy; queue = m.pending; parentList = m.parents || []; waitingParents = m.waiting_parents || []; renderQueue(); renderUnrestricted(); renderParents(); }
     if (m.type === 'request') {
       if (!queue.some(r => r.app === m.request.app)) queue.push(m.request);
       notify(m.request); renderQueue();
@@ -1140,7 +1223,7 @@ $('rules-save').onclick = () => {
   const [aSites, bSites]   = moveResolve(lines('allowsites').map(siteKey), lines('blocksites').map(siteKey), sp.aSites, sp.bSites);
   const days = {};
   DAYS.forEach(d => { const w = $('day-'+d).value.split(',').map(s=>s.trim()).filter(Boolean); if(w.length) days[d]=w; });
-  send({ type:'set_policy', policy:{
+  sendInbox({ type:'set_policy', policy:{
     allowed_apps: allowed, blocked_apps: blocked, ask_unknown: $('askunknown').checked,
     allowed_sites: aSites, blocked_sites: bSites, ask_unknown_sites: $('askunknownsites').checked,
     schedule: { enabled: $('schedon').checked, days },
@@ -1149,6 +1232,35 @@ $('rules-save').onclick = () => {
   shownPolicy = { allowed, blocked, aSites, bSites };
   toast('Rules saved ✓');
 };
+
+// ── Parents ──
+let parentList = [], waitingParents = [];
+$('pname').value = store.get('guardian.name');
+function renderParents() {
+  $('parents-card').hidden = !parentList.length && !waitingParents.length;
+  const me = myId(), initial = n => esc((n || '?').trim()[0].toUpperCase());
+  $('waiting-list').innerHTML = waitingParents.map(w => `
+    <div class="prow waiting"><div class="pav">${initial(w.name)}</div>
+      <div class="pinfo"><div class="pname">${esc(w.name)}</div><div class="psub">Wants to become a parent</div></div>
+      <button class="btn btn-bad" data-deny="${esc(w.id)}">Deny</button>
+      <button class="btn btn-good" data-approve="${esc(w.id)}">Approve</button></div>`).join('');
+  $('parent-list').innerHTML = parentList.map(p => `
+    <div class="prow"><div class="pav">${initial(p.name)}</div>
+      <div class="pinfo"><div class="pname">${esc(p.name)}</div><div class="psub">Added ${new Date(p.added*1000).toLocaleDateString()}</div></div>
+      ${p.id === me ? '<span class="ptag">You</span>' : (parentList.length > 1 ? `<button class="btn btn-ghost" data-remove="${esc(p.id)}">Remove</button>` : '')}</div>`).join('');
+  document.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => { sendInbox({ type:'approve_parent', id:b.dataset.approve }); toast('Approved'); });
+  document.querySelectorAll('[data-deny]').forEach(b => b.onclick = () => { sendInbox({ type:'deny_parent', id:b.dataset.deny }); waitingParents = waitingParents.filter(w => w.id !== b.dataset.deny); renderParents(); });
+  document.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => {
+    if (b.dataset.confirm) { sendInbox({ type:'remove_parent', id:b.dataset.remove }); toast('Parent removed'); return; }
+    b.dataset.confirm = '1'; b.textContent = 'Click again to remove'; b.className = 'btn btn-bad';
+    setTimeout(() => renderParents(), 4000);
+  });
+}
+function parentAlert(m) {
+  window.guardianDesktop?.request();
+  toast(`${m.name} wants to become a parent. Approve or deny in Settings`, 6000);
+  try { if (document.hidden && Notification.permission === 'granted') { const n = new Notification('Guardian: new parent', { body:`${m.name} wants access. Open Settings to approve.` }); n.onclick = () => { window.guardianDesktop?.show(); goTo('connect'); }; } } catch {}
+}
 
 // ── Unrestricted mode ─────────────────────────────────────────
 function renderUnrestricted() {
@@ -1165,7 +1277,7 @@ function renderUnrestricted() {
 $('unr-btn').onclick = () => {
   const p = { ...policy, unrestricted: !policy.unrestricted };
   const msg = { type:'set_policy', policy: p };
-  if (ws?.readyState === 1) send(msg); else sendInbox(msg);
+  sendInbox(msg);
   policy = p; renderUnrestricted();
   toast(p.unrestricted ? 'All restrictions removed' : 'Restrictions back on');
 };

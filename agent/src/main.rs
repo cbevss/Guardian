@@ -46,7 +46,46 @@ struct Config {
     /// Real DNS server allowed lookups go to. Default: Cloudflare for Families.
     #[serde(default = "default_upstream")]
     dns_upstream: String,
+    /// Parent apps allowed in. The first one to pair is added automatically;
+    /// after that a new parent app has to be approved by one already on the list.
+    #[serde(default)]
+    parents: Vec<ParentInfo>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct ParentInfo { id: String, name: String, added: u64 }
+
+fn now_secs() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) }
+
+/// Who's allowed in, kept in agent.json.
+#[derive(Clone)]
+struct Roster {
+    parents: std::sync::Arc<std::sync::Mutex<Vec<ParentInfo>>>,
+    /// Parent apps that typed the right code but still need approving: id -> name.
+    waiting: std::sync::Arc<std::sync::Mutex<std::collections::BTreeMap<String, String>>>,
+    save: std::sync::Arc<dyn Fn(&[ParentInfo]) + Send + Sync>,
+}
+impl Roster {
+    fn is_parent(&self, id: &str) -> bool { self.parents.lock().unwrap().iter().any(|p| p.id == id) }
+    fn list(&self) -> Vec<ParentInfo> { self.parents.lock().unwrap().clone() }
+    fn add(&self, id: &str, name: &str) {
+        let mut l = self.parents.lock().unwrap();
+        if !l.iter().any(|p| p.id == id) { l.push(ParentInfo { id: id.into(), name: clean_name(name), added: now_secs() }); }
+        (self.save)(&l);
+        self.waiting.lock().unwrap().remove(id);
+    }
+    fn remove(&self, id: &str) {
+        let mut l = self.parents.lock().unwrap();
+        l.retain(|p| p.id != id);
+        (self.save)(&l);
+    }
+}
+fn clean_name(n: &str) -> String {
+    let n: String = n.chars().filter(|c| !c.is_control()).take(40).collect();
+    if n.trim().is_empty() { "Parent".into() } else { n.trim().into() }
+}
+
+enum Admit { Yes, Waiting, No(&'static str) }
 
 #[allow(dead_code)]
 static INSTALLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -77,6 +116,7 @@ fn load_or_create_config() -> Config {
                 code: (0..12).map(|_| ALPHA[r.gen_range(0..ALPHA.len())] as char).collect(),
                 policy: Default::default(),
                 dns_upstream: default_upstream(),
+                parents: vec![],
             }
         }
     };
@@ -94,7 +134,7 @@ fn load_or_create_config() -> Config {
 enum ControlMsg {
     ControllerJoined,
     ControllerLeft,
-    Auth { code: String },
+    Auth { code: String, #[serde(default)] parent_id: String, #[serde(default)] name: String },
     SelectMonitor { index: usize },
     SetQuality { fps: u32, quality: u8 },
     /// x, y are 0..1 positions on the currently viewed monitor.
@@ -115,10 +155,14 @@ enum ControlMsg {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ParentMsg {
-    Auth { code: String },
+    Auth { code: String, #[serde(default)] parent_id: String, #[serde(default)] name: String },
     /// decision is "Temporary", "Approve" or "Deny"
     Decide { app: String, decision: policy::Decision },
     SetPolicy { policy: policy::Policy },
+    /// Let a new parent app in, or not.
+    ApproveParent { id: String },
+    DenyParent { id: String },
+    RemoveParent { id: String },
 }
 
 fn main() {
@@ -153,16 +197,26 @@ fn main() {
 
 async fn agent(installed: bool) {
     let cfg = load_or_create_config();
-    let save_cfg = cfg.clone();
+    let disk = std::sync::Arc::new(std::sync::Mutex::new(cfg.clone()));
+    let save_disk = disk.clone();
     // Guardian's own relay server must always be reachable.
     let mut always = vec![];
     if let Some(h) = cfg.relay.split("://").nth(1).and_then(|r| r.split(['/', ':']).next()) {
         always.push(policy::site_of(h)); always.push(h.to_string());
     }
     let shared = policy::Shared::new(cfg.policy.clone(), always, move |p| {
-        let mut c = save_cfg.clone(); c.policy = p.clone();
-        let _ = std::fs::write(config_path(), serde_json::to_string_pretty(&c).unwrap());
+        let mut c = save_disk.lock().unwrap(); c.policy = p.clone();
+        let _ = std::fs::write(config_path(), serde_json::to_string_pretty(&*c).unwrap());
     });
+    let roster_disk = disk.clone();
+    let roster = Roster {
+        parents: std::sync::Arc::new(std::sync::Mutex::new(cfg.parents.clone())),
+        waiting: Default::default(),
+        save: std::sync::Arc::new(move |l: &[ParentInfo]| {
+            let mut c = roster_disk.lock().unwrap(); c.parents = l.to_vec();
+            let _ = std::fs::write(config_path(), serde_json::to_string_pretty(&*c).unwrap());
+        }),
+    };
     tokio::spawn(policy::enforcer(shared.clone()));
     tokio::spawn(winsetup::schedule_enforcer(shared.clone()));
 
@@ -190,7 +244,7 @@ async fn agent(installed: bool) {
                 discovery::find_home_relay().await
             }
         };
-        if let Err(e) = run(&cfg, &url, &shared).await { eprintln!("connection lost: {e}"); }
+        if let Err(e) = run(&cfg, &url, &shared, &roster).await { eprintln!("connection lost: {e}"); }
         tokio::time::sleep(Duration::from_secs(5)).await; // reconnect forever (unattended)
     }
 }
@@ -203,6 +257,9 @@ struct Session {
     fps: u32,
     quality: u8,
     last_clip: String,
+    /// The viewer's parent app ID, while it waits for approval.
+    waiting_id: Option<String>,
+    viewer_id: String,
 }
 
 fn text(v: serde_json::Value) -> Message { Message::Text(v.to_string()) }
@@ -218,13 +275,36 @@ fn check_code(s: &mut Session, cfg: &Config, code: &str) -> Result<(), &'static 
     Err("wrong_code")
 }
 
-fn parent_welcome(shared: &policy::Shared) -> serde_json::Value {
-    let pending: Vec<_> = shared.pending.lock().unwrap().values().cloned().collect();
-    let pol = shared.policy.read().unwrap().clone();
-    json!({"type":"parent_hello","pending":pending,"policy":pol})
+/// Right code + a known parent app = in. Right code + a new parent app = wait
+/// for a parent to approve it (unless it's the very first one).
+fn admit(s: &mut Session, cfg: &Config, roster: &Roster, code: &str, id: &str, name: &str) -> Admit {
+    if let Err(r) = check_code(s, cfg, code) { return Admit::No(r); }
+    if id.len() < 16 || id.len() > 64 { return Admit::No("update_app"); }
+    if roster.list().is_empty() { roster.add(id, name); println!("first parent added: {name}"); return Admit::Yes; }
+    if roster.is_parent(id) { return Admit::Yes; }
+    roster.waiting.lock().unwrap().insert(id.into(), clean_name(name));
+    Admit::Waiting
 }
 
-async fn run(cfg: &Config, relay: &str, shared: &policy::Shared) -> Result<(), Box<dyn std::error::Error>> {
+fn parent_welcome(shared: &policy::Shared, roster: &Roster, you: &str) -> serde_json::Value {
+    let pending: Vec<_> = shared.pending.lock().unwrap().values().cloned().collect();
+    let pol = shared.policy.read().unwrap().clone();
+    let waiting: Vec<_> = roster.waiting.lock().unwrap().iter().map(|(id, name)| json!({"id":id,"name":name})).collect();
+    json!({"type":"parent_hello","pending":pending,"policy":pol,"parents":roster.list(),"waiting_parents":waiting,"you":you})
+}
+
+#[derive(Clone)]
+struct PState { authed: bool, id: String }
+
+/// Sends everyone the latest lists (rules, requests, parents).
+async fn broadcast_roster(out: &mpsc::Sender<Message>, parents: &std::collections::HashMap<u64, PState>, shared: &policy::Shared, roster: &Roster) -> Result<(), Box<dyn std::error::Error>> {
+    for (pid, p) in parents {
+        if p.authed && roster.is_parent(&p.id) { out.send(to_parent(*pid, parent_welcome(shared, roster, &p.id))).await?; }
+    }
+    Ok(())
+}
+
+async fn run(cfg: &Config, relay: &str, shared: &policy::Shared, roster: &Roster) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!("{}/ws/agent?id={}", relay.trim_end_matches('/'), cfg.id);
     let (ws, _) = tokio_tungstenite::connect_async(&url).await?;
     println!("connected to {relay}");
@@ -237,11 +317,11 @@ async fn run(cfg: &Config, relay: &str, shared: &policy::Shared) -> Result<(), B
         }
     });
 
-    let mut s = Session { authed: false, failures: 0, locked_until: None, monitor: 0, fps: 8, quality: 60, last_clip: String::new() };
+    let mut s = Session { authed: false, failures: 0, locked_until: None, monitor: 0, fps: 8, quality: 60, last_clip: String::new(), waiting_id: None, viewer_id: String::new() };
     let mut tick = tokio::time::interval(Duration::from_millis(1000 / s.fps as u64));
     let mut clip_tick = tokio::time::interval(Duration::from_millis(1000));
     let mut inp = input::Input::new();
-    let mut parents: std::collections::HashMap<u64, bool> = Default::default(); // pid -> authed
+    let mut parents: std::collections::HashMap<u64, PState> = Default::default();
     let mut events = shared.events.subscribe();
 
     loop {
@@ -252,39 +332,88 @@ async fn run(cfg: &Config, relay: &str, shared: &policy::Shared) -> Result<(), B
                 let Ok(cm) = serde_json::from_str::<ControlMsg>(&t) else { continue };
                 match cm {
                     ControlMsg::ControllerJoined => {
-                        s.authed = false; shared.set_override(false);
+                        s.authed = false; s.waiting_id = None; shared.set_override(false);
                         out_tx.send(text(json!({"type":"auth_required"}))).await?;
                     }
                     ControlMsg::ControllerLeft => { s.authed = false; inp.release_all(); shared.set_override(false); println!("controller left"); }
-                    ControlMsg::Auth { code } => match check_code(&mut s, cfg, &code) {
-                        Ok(()) => {
-                            s.authed = true;
+                    ControlMsg::Auth { code, parent_id, name } => match admit(&mut s, cfg, roster, &code, &parent_id, &name) {
+                        Admit::Waiting => {
+                            s.waiting_id = Some(parent_id.clone());
+                            out_tx.send(text(json!({"type":"auth_pending"}))).await?;
+                            let m = json!({"type":"parent_request","id":parent_id,"name":clean_name(&name)});
+                            for (pid, p) in &parents { if p.authed { out_tx.send(to_parent(*pid, m.clone())).await?; } }
+                        }
+                        Admit::Yes => {
+                            s.authed = true; s.waiting_id = None; s.viewer_id = parent_id.clone();
                             s.last_clip = clipboard::get().unwrap_or_default();
                             println!("controller authenticated");
                             let pol = shared.policy.read().unwrap().clone();
                             out_tx.send(text(json!({"type":"hello","monitors":capture::list_monitors(),"policy":pol}))).await?;
                         }
-                        Err(reason) => out_tx.send(text(json!({"type":"auth_failed","reason":reason}))).await?,
+                        Admit::No(reason) => out_tx.send(text(json!({"type":"auth_failed","reason":reason}))).await?,
                     },
                     ControlMsg::ParentJoined { pid } => {
-                        parents.insert(pid, false);
+                        parents.insert(pid, PState { authed: false, id: String::new() });
                         out_tx.send(to_parent(pid, json!({"type":"auth_required"}))).await?;
                     }
                     ControlMsg::ParentLeft { pid } => { parents.remove(&pid); }
                     ControlMsg::FromParent { pid, msg } => {
                         let Ok(pm) = serde_json::from_value::<ParentMsg>(msg) else { continue };
-                        let authed = parents.get(&pid).copied().unwrap_or(false);
+                        let me = parents.get(&pid).cloned().unwrap_or(PState { authed: false, id: String::new() });
+                        // A parent removed while connected loses access straight away.
+                        let authed = me.authed && roster.is_parent(&me.id);
                         match pm {
-                            ParentMsg::Auth { code } => match check_code(&mut s, cfg, &code) {
-                                Ok(()) => {
-                                    parents.insert(pid, true);
+                            ParentMsg::Auth { code, parent_id, name } => match admit(&mut s, cfg, roster, &code, &parent_id, &name) {
+                                Admit::Yes => {
+                                    parents.insert(pid, PState { authed: true, id: parent_id.clone() });
                                     println!("parent {pid} authenticated");
-                                    out_tx.send(to_parent(pid, parent_welcome(shared))).await?;
+                                    out_tx.send(to_parent(pid, parent_welcome(shared, roster, &parent_id))).await?;
                                 }
-                                Err(reason) => out_tx.send(to_parent(pid, json!({"type":"auth_failed","reason":reason}))).await?,
+                                Admit::Waiting => {
+                                    parents.insert(pid, PState { authed: false, id: parent_id.clone() });
+                                    out_tx.send(to_parent(pid, json!({"type":"auth_pending"}))).await?;
+                                    let m = json!({"type":"parent_request","id":parent_id,"name":clean_name(&name)});
+                                    for (p2, st) in &parents { if st.authed { out_tx.send(to_parent(*p2, m.clone())).await?; } }
+                                }
+                                Admit::No(reason) => out_tx.send(to_parent(pid, json!({"type":"auth_failed","reason":reason}))).await?,
                             },
                             ParentMsg::Decide { app, decision } if authed => { shared.decide(&app, decision); }
                             ParentMsg::SetPolicy { policy } if authed => { shared.set_policy(policy); }
+                            ParentMsg::ApproveParent { id } if authed => {
+                                let name = roster.waiting.lock().unwrap().get(&id).cloned();
+                                let Some(name) = name else { continue };
+                                roster.add(&id, &name);
+                                println!("parent approved: {name}");
+                                // Let them in right away if they're connected.
+                                for (p2, st) in parents.iter_mut() {
+                                    if st.id == id { st.authed = true; out_tx.send(to_parent(*p2, parent_welcome(shared, roster, &id))).await?; }
+                                }
+                                if s.waiting_id.as_deref() == Some(&id) {
+                                    s.authed = true; s.waiting_id = None; s.viewer_id = id.clone();
+                                    let pol = shared.policy.read().unwrap().clone();
+                                    out_tx.send(text(json!({"type":"hello","monitors":capture::list_monitors(),"policy":pol}))).await?;
+                                }
+                                broadcast_roster(&out_tx, &parents, shared, roster).await?;
+                            }
+                            ParentMsg::DenyParent { id } if authed => {
+                                roster.waiting.lock().unwrap().remove(&id);
+                                for (p2, st) in &parents { if st.id == id && !st.authed { out_tx.send(to_parent(*p2, json!({"type":"auth_failed","reason":"denied"}))).await?; } }
+                                if s.waiting_id.as_deref() == Some(&id) { s.waiting_id = None; out_tx.send(text(json!({"type":"auth_failed","reason":"denied"}))).await?; }
+                                broadcast_roster(&out_tx, &parents, shared, roster).await?;
+                            }
+                            ParentMsg::RemoveParent { id } if authed => {
+                                if id == me.id || roster.list().len() <= 1 { continue; } // can't remove yourself or the last parent
+                                roster.remove(&id);
+                                println!("parent removed");
+                                for (p2, st) in parents.iter_mut() {
+                                    if st.id == id { st.authed = false; out_tx.send(to_parent(*p2, json!({"type":"auth_failed","reason":"removed"}))).await?; }
+                                }
+                                if s.viewer_id == id {
+                                    s.authed = false; inp.release_all(); shared.set_override(false);
+                                    out_tx.send(text(json!({"type":"auth_failed","reason":"removed"}))).await?;
+                                }
+                                broadcast_roster(&out_tx, &parents, shared, roster).await?;
+                            }
                             _ => {}
                         }
                     }
@@ -332,12 +461,11 @@ async fn run(cfg: &Config, relay: &str, shared: &policy::Shared) -> Result<(), B
                         let pol = shared.policy.read().unwrap().clone();
                         if s.authed { out_tx.send(text(json!({"type":"policy","policy":pol}))).await?; }
                         // Lagged? resend everything to parents
-                        let w = parent_welcome(shared);
-                        for (pid, ok) in &parents { if *ok { out_tx.send(to_parent(*pid, w.clone())).await?; } }
+                        broadcast_roster(&out_tx, &parents, shared, roster).await?;
                         continue;
                     }
                 };
-                for (pid, ok) in &parents { if *ok { out_tx.send(to_parent(*pid, msg.clone())).await?; } }
+                for (pid, p) in &parents { if p.authed && roster.is_parent(&p.id) { out_tx.send(to_parent(*pid, msg.clone())).await?; } }
             }
             _ = clip_tick.tick(), if s.authed => {
                 if let Some(c) = clipboard::get() {
