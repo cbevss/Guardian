@@ -1,0 +1,29 @@
+# Guardian website + account server.
+# Free Cloudflare address: https://guardian.<your-subdomain>.workers.dev
+name = "guardian"
+main = "src/worker.js"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "guardian"
+database_id = "REPLACE_WITH_D1_ID"   # filled in by `wrangler d1 create guardian`
+
+[vars]
+ADMIN_EMAIL = "cbevs@icloud.com"
+
+[triggers]
+crons = ["17 3 * * *"]
+
+# Secrets (set with `wrangler secret put NAME`, never committed):
+#   MAIL_KEY   random string that encrypts the email settings saved from the admin tab
+#   SMTP_USER  the email address codes are sent from (until changed in the admin tab)
+#   SMTP_PASS  its app-specific password
+#   SMTP_HOST / SMTP_PORT  optional, default smtp.mail.me.com:587 (iCloud)
