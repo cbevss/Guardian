@@ -469,8 +469,19 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
 .lock-card input { width:100%; text-align:center; padding:11px; font-size:15px; }
 .lock-card .btn { width:100%; justify-content:center; padding:11px; }
 .lock-err { min-height:18px; font-size:12.5px; color:var(--bad); }
+.lock-links { display:flex; gap:16px; justify-content:center; }
 .lock-link { background:none; border:none; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
 .lock-link:hover { color:var(--fg); }
+
+/* ── Account ── */
+.acct-more summary { cursor:pointer; color:var(--accent); font-size:13px; font-weight:500; list-style:none; }
+.acct-more summary::-webkit-details-marker { display:none; }
+.acct-more summary::before { content:'›'; display:inline-block; margin-right:6px; transition:transform .15s; }
+.acct-more[open] summary::before { transform:rotate(90deg); }
+.connect-fields > input { width:100%; }
+.smtp-state { font-size:12.5px; padding:8px 11px; border-radius:8px; background:var(--bg); border:1px solid var(--border); color:var(--muted); }
+.smtp-state.ok { color:var(--good); border-color:rgba(52,209,122,.3); background:rgba(52,209,122,.06); }
+body:not(.desk) .desk-only { display:none !important; }
 
 /* ── Parents ── */
 #page-connect { gap: 16px; justify-content: flex-start; padding-top: 40px; }
@@ -619,13 +630,22 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
       <path d="M13 16 L13 13 C13 10.8 19 10.8 19 13 L19 16" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".95"/>
       <circle cx="16" cy="19.5" r="1.2" fill="#2353e8"/><rect x="15.1" y="19.5" width="1.8" height="2.5" rx="0.9" fill="#2353e8"/>
     </svg>
-    <h2 id="lock-title">Enter your password</h2>
+    <h2 id="lock-title"></h2>
     <div class="lock-sub" id="lock-sub"></div>
+    <input type="email" id="lock-email" placeholder="Email address" autocomplete="email" hidden>
+    <input type="text" id="lock-code" placeholder="6-digit code from the email" inputmode="numeric" maxlength="6" autocomplete="one-time-code" hidden>
     <input type="password" id="lock-pw" placeholder="Password" autocomplete="current-password">
     <input type="password" id="lock-pw2" placeholder="Type it again" autocomplete="new-password" hidden>
     <div class="lock-err" id="lock-err"></div>
-    <button class="btn btn-primary" id="lock-go">Unlock</button>
-    <button class="lock-link" id="lock-forgot" hidden>Forgot password?</button>
+    <button class="btn btn-primary" id="lock-go"></button>
+    <button class="btn btn-ghost" id="lock-passkey" hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15 19 4m-3 3 3 3m-6-6 3 3"/></svg>
+      Use a passkey
+    </button>
+    <div class="lock-links">
+      <button class="lock-link" id="lock-forgot" hidden>Forgot password?</button>
+      <button class="lock-link" id="lock-back" hidden>Back</button>
+    </div>
   </div>
 </div>
 
@@ -722,6 +742,47 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
         </label>
         <button class="btn btn-primary" id="connect" style="justify-content:center;padding:10px;">Save and connect</button>
         <button class="btn btn-ghost" id="forget" style="justify-content:center">Forget this PC</button>
+      </div>
+    </div>
+
+    <div class="connect-card" id="account-card">
+      <h2 style="font-size:17px">Your account</h2>
+      <div class="rule-hint" style="margin-top:-8px">Signed in as <b id="acct-email" style="color:var(--fg)"></b>. Your password is needed each time Guardian starts.</div>
+      <details class="acct-more">
+        <summary>Change password</summary>
+        <div class="connect-fields" style="margin-top:12px">
+          <input type="password" id="cp-old" placeholder="Current password" autocomplete="current-password">
+          <input type="password" id="cp-new" placeholder="New password" autocomplete="new-password">
+          <input type="password" id="cp-new2" placeholder="New password again" autocomplete="new-password">
+          <button class="btn btn-primary" id="cp-go" style="justify-content:center">Change password</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="connect-card desk-only" id="passkey-card">
+      <h2 style="font-size:17px">Passkeys</h2>
+      <div class="rule-hint" style="margin-top:-8px">Unlock Guardian with Windows Hello (your face, fingerprint or PC PIN) instead of typing your password.</div>
+      <div id="passkey-list" class="plist"></div>
+      <button class="btn btn-secondary" id="pk-add" style="justify-content:center">Add a passkey</button>
+    </div>
+
+    <div class="connect-card desk-only" id="smtp-card">
+      <h2 style="font-size:17px">Password reset email</h2>
+      <div class="rule-hint" style="margin-top:-8px">The email account Guardian sends reset codes from. A separate Gmail works best: turn on 2-Step Verification, then make an <b style="color:var(--fg)">App password</b> at myaccount.google.com/apppasswords and paste it here.</div>
+      <div class="smtp-state" id="smtp-state"></div>
+      <div class="connect-fields">
+        <div class="field"><label>Send from (email address)</label><input type="email" id="smtp-user" placeholder="guardian.family@gmail.com"></div>
+        <div class="field"><label>App password</label><input type="password" id="smtp-pass" placeholder="16 letters from Google"></div>
+        <details class="acct-more"><summary>Not Gmail?</summary>
+          <div class="connect-row" style="margin-top:10px">
+            <div class="field"><label>Server</label><input type="text" id="smtp-host" placeholder="smtp.gmail.com"></div>
+            <div class="field" style="max-width:90px"><label>Port</label><input type="text" id="smtp-port" placeholder="465"></div>
+          </div>
+        </details>
+        <div class="connect-row">
+          <button class="btn btn-primary" id="smtp-save" style="flex:1;justify-content:center">Save</button>
+          <button class="btn btn-ghost" id="smtp-test" style="flex:1;justify-content:center">Send test email</button>
+        </div>
       </div>
     </div>
 
@@ -878,16 +939,22 @@ const store = {
 };
 $('devid').value = store.get('guardian.id');
 
-// ── App password ──
-// The saved pairing code is encrypted with a key made from the app password, so without
-// the password nobody can connect from this app, even with access to this PC's files.
+// ── Account & lock screen ──
+// A random vault key encrypts the saved pairing code. The vault key itself is stored
+// locked with your password, and (in the desktop app) a recovery copy is sealed by
+// Windows for your account, released only after an emailed code or a passkey.
 const enc = new TextEncoder(), dec = new TextDecoder();
 const b64 = a => btoa(String.fromCharCode(...new Uint8Array(a)));
 const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
-async function deriveKey(pw, salt) {
+const b64url = a => b64(a).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64url = t => unb64(t.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((t.length + 3) % 4));
+const desk = window.guardianDesktop;
+const sec = (name, ...a) => desk ? desk.sec(name, ...a) : Promise.resolve({ error: 'browser' });
+async function pwKey(pw, salt) {
   const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
 }
+const aesKey = raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
 async function seal(key, text) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   return b64(iv) + '.' + b64(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc.encode(text)));
@@ -897,58 +964,132 @@ async function open_(key, blob) {
   return dec.decode(await crypto.subtle.decrypt({ name:'AES-GCM', iv: unb64(iv) }, key, unb64(ct)));
 }
 const vault = {
-  key: null, code: '',
+  raw: null, key: null, code: '',
   async setCode(c) { this.code = c; if (this.key) store.set('guardian.code_enc', c ? await seal(this.key, c) : ''); },
 };
-store.set('guardian.code', ''); // never kept in plain text
+['guardian.code','guardian.pw_check'].forEach(k => store.set(k, '')); // older formats
 
-let lockFails = 0, lockUntil = 0;
-function showLock() {
-  const hasPw = !!store.get('guardian.pw_check');
-  $('lock-title').textContent = hasPw ? 'Enter your password' : 'Create a password';
-  $('lock-sub').textContent = hasPw ? 'Guardian is locked. Your password is needed each time the app starts.'
-    : "You'll type this each time Guardian starts, so nobody else can see his screen from this PC.";
-  $('lock-pw2').hidden = hasPw; $('lock-forgot').hidden = !hasPw;
-  $('lock-go').textContent = hasPw ? 'Unlock' : 'Set password';
-  setTimeout(() => $('lock-pw').focus(), 50);
+const account = () => store.get('guardian.account_email');
+async function setPassword(pw) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  store.set('guardian.pw_salt', b64(salt));
+  store.set('guardian.pw_wrap', await seal(await pwKey(pw, salt), b64(vault.raw)));
 }
-async function tryUnlock() {
-  const pw = $('lock-pw').value, err = m => { $('lock-err').textContent = m; $('lock-card').classList.remove('shake'); void $('lock-card').offsetWidth; $('lock-card').classList.add('shake'); };
-  if (Date.now() < lockUntil) return err(`Too many tries. Wait ${Math.ceil((lockUntil - Date.now())/1000)} seconds`);
-  const hasPw = !!store.get('guardian.pw_check');
-  if (!hasPw) {
-    if (pw.length < 6) return err('Use at least 6 characters');
-    if (pw !== $('lock-pw2').value) return err("The two passwords don't match");
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    vault.key = await deriveKey(pw, salt);
-    store.set('guardian.pw_salt', b64(salt));
-    store.set('guardian.pw_check', await seal(vault.key, 'guardian'));
-  } else {
+async function openVault(rawB64) {
+  vault.raw = unb64(rawB64); vault.key = await aesKey(vault.raw);
+  const c = store.get('guardian.code_enc');
+  try { vault.code = c ? await open_(vault.key, c) : ''; } catch { vault.code = ''; }
+  sec('saveRecovery', b64(vault.raw));
+}
+
+let lockView = 'login', lockFails = 0, lockUntil = 0;
+const maskEmail = e => e.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(Math.min(b.length, 6)) + c);
+function lockErr(m, ok) {
+  $('lock-err').textContent = m || ''; $('lock-err').style.color = ok ? 'var(--good)' : '';
+  if (m && !ok) { $('lock-card').classList.remove('shake'); void $('lock-card').offsetWidth; $('lock-card').classList.add('shake'); }
+}
+async function showLock(view) {
+  lockView = view || (account() ? 'login' : 'create');
+  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = '');
+  const v = lockView, show = (id, on) => $(id).hidden = !on;
+  show('lock-email', v === 'create'); show('lock-code', v === 'reset');
+  show('lock-pw2', v === 'create' || v === 'reset');
+  show('lock-forgot', v === 'login'); show('lock-back', v === 'reset');
+  $('lock-pw').placeholder = v === 'reset' ? 'New password' : 'Password';
+  $('lock-pw').autocomplete = v === 'login' ? 'current-password' : 'new-password';
+  $('lock-title').textContent = { create:'Create your Guardian account', login:'Welcome back', reset:'Reset your password' }[v];
+  $('lock-sub').textContent = {
+    create: "Your email is where reset codes go if you ever forget your password. You'll type the password each time Guardian starts.",
+    login: account() ? `Signed in as ${account()}. Guardian is locked until you enter your password.` : '',
+    reset: `We emailed a 6-digit code to ${maskEmail(account())}. It works for 15 minutes.`,
+  }[v];
+  $('lock-go').textContent = { create:'Create account', login:'Unlock', reset:'Set new password' }[v];
+  $('lock-go').disabled = false;
+  const keys = v === 'login' && desk ? await sec('passkeys') : [];
+  show('lock-passkey', Array.isArray(keys) && keys.length > 0);
+  setTimeout(() => (v === 'create' ? $('lock-email') : v === 'reset' ? $('lock-code') : $('lock-pw')).focus(), 50);
+}
+function unlocked() {
+  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = '');
+  $('lock').classList.add('gone'); setTimeout(() => $('lock').remove(), 400);
+  afterUnlock(); renderAccount();
+}
+async function sendReset(auto) {
+  const r = await sec('sendReset', account());
+  if (r === true) { await showLock('reset'); if (auto) lockErr('Too many wrong tries, so we emailed you a reset code.', true); return true; }
+  const why = { not_configured: "Reset emails aren't set up on this PC yet (Settings → Password reset email). You can wait 30 seconds and try again, or reset Guardian on this PC.",
+    wait: 'A code was sent less than a minute ago. Check your inbox and spam folder.', browser: 'Password reset by email works in the Guardian app.' }[r?.error] || "Couldn't send the email. Check the internet connection and try again.";
+  lockErr(why);
+  if (r?.error === 'not_configured' || r?.error === 'browser') offerWipe();
+  return false;
+}
+function offerWipe() {
+  const b = $('lock-forgot'); b.hidden = false; b.textContent = 'Reset Guardian on this PC';
+  b.onclick = () => {
+    if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'This deletes your account and saved PC on this PC. Click again'; return; }
+    ['guardian.account_email','guardian.pw_salt','guardian.pw_wrap','guardian.code_enc','guardian.id'].forEach(k => store.set(k, ''));
+    sec('wipe'); b.dataset.sure = ''; b.textContent = 'Forgot password?'; b.onclick = () => sendReset(false);
+    showLock('create'); lockErr('Guardian was reset on this PC. Create a new account.', true);
+  };
+}
+async function lockSubmit() {
+  const v = lockView, pw = $('lock-pw').value;
+  if (v === 'login' && Date.now() < lockUntil) return lockErr(`Too many tries. Wait ${Math.ceil((lockUntil - Date.now())/1000)} seconds`);
+  if (v === 'create') {
+    const email = $('lock-email').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return lockErr('Type a valid email address');
+    if (pw.length < 8) return lockErr('Use at least 8 characters for the password');
+    if (pw !== $('lock-pw2').value) return lockErr("The two passwords don't match");
+    vault.raw = crypto.getRandomValues(new Uint8Array(32)); vault.key = await aesKey(vault.raw);
+    await setPassword(pw);
+    store.set('guardian.account_email', email);
+    sec('saveRecovery', b64(vault.raw));
+    return unlocked();
+  }
+  if (v === 'login') {
     $('lock-go').disabled = true; $('lock-go').textContent = 'Checking…';
     try {
-      const key = await deriveKey(pw, unb64(store.get('guardian.pw_salt')));
-      if (await open_(key, store.get('guardian.pw_check')) !== 'guardian') throw 0;
-      vault.key = key;
-      const c = store.get('guardian.code_enc'); vault.code = c ? await open_(key, c) : '';
+      const raw = await open_(await pwKey(pw, unb64(store.get('guardian.pw_salt'))), store.get('guardian.pw_wrap'));
+      await openVault(raw); lockFails = 0; return unlocked();
     } catch {
       $('lock-go').disabled = false; $('lock-go').textContent = 'Unlock';
-      if (++lockFails >= 5) { lockFails = 0; lockUntil = Date.now() + 30000; }
-      return err('Wrong password');
+      if (++lockFails >= 5) {
+        lockFails = 0; lockUntil = Date.now() + 30000;
+        if (await sendReset(true)) return;
+        return;
+      }
+      return lockErr(`Wrong password${lockFails >= 3 ? ` (${5 - lockFails} ${5 - lockFails === 1 ? 'try' : 'tries'} left before we email you a reset code)` : ''}`);
     }
   }
-  $('lock-pw').value = $('lock-pw2').value = '';
-  $('lock').classList.add('gone'); setTimeout(() => $('lock').remove(), 400);
-  afterUnlock();
+  if (v === 'reset') {
+    if (!/^\d{6}$/.test($('lock-code').value.trim())) return lockErr('Type the 6-digit code from the email');
+    if (pw.length < 8) return lockErr('Use at least 8 characters for the new password');
+    if (pw !== $('lock-pw2').value) return lockErr("The two passwords don't match");
+    const r = await sec('checkReset', $('lock-code').value.trim());
+    if (!r?.ok) return lockErr(r?.reason === 'expired' ? 'That code has expired. Go back and press Forgot password to get a new one.' : 'That code is wrong. Check the email and try again.');
+    if (!r.key) return lockErr("Code accepted, but this PC's recovery copy is missing. Reset Guardian on this PC instead."), offerWipe();
+    await openVault(r.key); await setPassword(pw); lockUntil = 0;
+    return unlocked();
+  }
 }
-$('lock-go').onclick = tryUnlock;
-['lock-pw','lock-pw2'].forEach(i => $(i).addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); }));
-$('lock-forgot').onclick = () => {
-  const b = $('lock-forgot');
-  if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = 'This removes his saved PC from this app. Click again to reset'; return; }
-  ['guardian.pw_check','guardian.pw_salt','guardian.code_enc'].forEach(k => store.set(k, ''));
-  b.dataset.sure = ''; $('lock-err').textContent = 'Reset. Create a new password, then add his PC again in Settings.';
-  showLock();
-};
+async function passkeyUnlock() {
+  try {
+    const challenge = await sec('challenge'); const keys = await sec('passkeys');
+    const cred = await navigator.credentials.get({ publicKey: {
+      challenge: unb64url(challenge), rpId: 'localhost', userVerification: 'required', timeout: 60000,
+      allowCredentials: keys.map(k => ({ type:'public-key', id: unb64url(k.id) })),
+    }});
+    const r = await sec('verifyPasskey', { id: cred.id, clientDataJSON: b64(cred.response.clientDataJSON),
+      authenticatorData: b64(cred.response.authenticatorData), signature: b64(cred.response.signature) });
+    if (!r?.ok || !r.key) return lockErr("That passkey didn't work. Use your password instead.");
+    await openVault(r.key); unlocked();
+  } catch (e) { if (e?.name !== 'NotAllowedError') lockErr("Passkey couldn't be used on this PC. Use your password."); }
+}
+$('lock-go').onclick = lockSubmit;
+$('lock-passkey').onclick = passkeyUnlock;
+$('lock-forgot').onclick = () => sendReset(false);
+$('lock-back').onclick = () => { lockErr(''); showLock('login'); };
+['lock-email','lock-code','lock-pw','lock-pw2'].forEach(i => $(i).addEventListener('keydown', e => { if (e.key === 'Enter') lockSubmit(); }));
 showLock();
 
 
@@ -1341,6 +1482,65 @@ $('rules-save').onclick = () => {
   }});
   shownPolicy = { allowed, blocked, aSites, bSites };
   toast('Rules saved ✓');
+};
+
+// ── Account settings ──
+if (desk) document.body.classList.add('desk');
+async function renderAccount() {
+  $('acct-email').textContent = account();
+  if (!desk) return;
+  const keys = await sec('passkeys');
+  $('passkey-list').innerHTML = (Array.isArray(keys) ? keys : []).map(k => `
+    <div class="prow"><div class="pav">🔑</div>
+      <div class="pinfo"><div class="pname">${esc(k.name)}</div><div class="psub">Added ${new Date(k.created).toLocaleDateString()}</div></div>
+      <button class="btn btn-ghost" data-pkdel="${esc(k.id)}">Remove</button></div>`).join('') || '<div class="psub">No passkeys yet.</div>';
+  document.querySelectorAll('[data-pkdel]').forEach(b => b.onclick = async () => { await sec('removePasskey', b.dataset.pkdel); toast('Passkey removed'); renderAccount(); });
+  const m = await sec('smtpInfo');
+  $('smtp-state').className = 'smtp-state' + (m?.configured ? ' ok' : '');
+  $('smtp-state').textContent = m?.configured ? `Reset emails are sent from ${m.user}` : "Not set up yet. Until it is, a forgotten password means resetting Guardian on this PC.";
+  if (m?.configured) { $('smtp-user').value = m.user; $('smtp-host').value = m.host === 'smtp.gmail.com' ? '' : m.host; $('smtp-port').value = m.port === 465 ? '' : m.port; $('smtp-pass').placeholder = 'Saved (leave blank to keep)'; }
+}
+$('cp-go').onclick = async () => {
+  const [o, n, n2] = ['cp-old','cp-new','cp-new2'].map(i => $(i).value);
+  try { await open_(await pwKey(o, unb64(store.get('guardian.pw_salt'))), store.get('guardian.pw_wrap')); }
+  catch { return toast('Current password is wrong'); }
+  if (n.length < 8) return toast('Use at least 8 characters');
+  if (n !== n2) return toast("New passwords don't match");
+  await setPassword(n); ['cp-old','cp-new','cp-new2'].forEach(i => $(i).value = '');
+  toast('Password changed');
+};
+$('pk-add').onclick = async () => {
+  try {
+    const existing = await sec('passkeys');
+    const cred = await navigator.credentials.create({ publicKey: {
+      rp: { id: 'localhost', name: 'Guardian' },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: account(), displayName: account() },
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      pubKeyCredParams: [{ type:'public-key', alg:-7 }],
+      authenticatorSelection: { authenticatorAttachment:'platform', userVerification:'required', residentKey:'preferred' },
+      excludeCredentials: existing.map(k => ({ type:'public-key', id: unb64url(k.id) })),
+      attestation: 'none', timeout: 60000,
+    }});
+    if (cred.response.getPublicKeyAlgorithm?.() !== -7) return toast("This PC's passkey type isn't supported");
+    const ok = await sec('addPasskey', { id: cred.id, name: 'Windows Hello on this PC', spki: b64(cred.response.getPublicKey()) });
+    toast(ok === true ? 'Passkey added. You can use it next time Guardian starts' : "Couldn't save the passkey");
+    renderAccount();
+  } catch (e) {
+    toast(e?.name === 'NotAllowedError' ? 'Passkey cancelled' : e?.name === 'InvalidStateError' ? 'This PC already has a passkey' : 'Passkeys need Windows Hello set up on this PC');
+  }
+};
+$('smtp-save').onclick = async () => {
+  const user = $('smtp-user').value.trim();
+  if (user && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user)) return toast('Type a valid email address');
+  const r = await sec('setSmtp', user ? { user, pass: $('smtp-pass').value, host: $('smtp-host').value.trim() || undefined, port: $('smtp-port').value.trim() || undefined } : null);
+  if (r !== true) return toast('Paste the app password too');
+  $('smtp-pass').value = ''; toast(user ? 'Saved. Send a test email to check it works' : 'Reset email turned off'); renderAccount();
+};
+$('smtp-test').onclick = async () => {
+  $('smtp-test').disabled = true; $('smtp-test').textContent = 'Sending…';
+  const r = await sec('testMail', account());
+  $('smtp-test').disabled = false; $('smtp-test').textContent = 'Send test email';
+  toast(r === true ? `Test email sent to ${account()}` : r?.error === 'not_configured' ? 'Save the email settings first' : "Couldn't send. Check the address and app password", 5000);
 };
 
 // ── Parents ──

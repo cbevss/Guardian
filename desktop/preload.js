@@ -7,4 +7,6 @@ contextBridge.exposeInMainWorld('guardianDesktop', {
   request: () => ipcRenderer.send('guardian:request'),
   show: () => ipcRenderer.send('guardian:show'),
   version: () => ipcRenderer.invoke('guardian:version'),
+  // Lock screen, reset emails and passkeys:
+  sec: (name, ...args) => ipcRenderer.invoke('sec:' + name, ...args),
 });

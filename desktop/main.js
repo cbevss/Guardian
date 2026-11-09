@@ -4,7 +4,8 @@
 // running in the system tray when the window is closed (so approval requests
 // still pop up), and updates itself from the GitHub releases of cbevss/Guardian.
 
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, shell, nativeImage, safeStorage } = require('electron');
+const { createSecurity } = require('./security');
 const { autoUpdater } = require('electron-updater');
 const { spawn } = require('child_process');
 const net = require('net');
@@ -113,6 +114,38 @@ ipcMain.on('guardian:request', () => {
   win.flashFrame(true);
 });
 ipcMain.handle('guardian:version', () => app.getVersion());
+
+// ---------- account security (see security.js) ----------
+let sec = null;
+function security() {
+  if (!sec) sec = createSecurity({
+    file: path.join(app.getPath('userData'), 'security.json'),
+    safeStorage,
+    sendMail: async (s, msg) => {
+      const nodemailer = require('nodemailer');
+      const t = nodemailer.createTransport({ host: s.host, port: s.port, secure: s.port === 465, auth: { user: s.user, pass: s.pass } });
+      await t.sendMail(msg);
+    },
+  });
+  return sec;
+}
+const fromOurPage = e => { try { return new URL(e.senderFrame.url).origin === URL; } catch { return false; } };
+const handle = (name, fn) => ipcMain.handle(name, async (e, ...a) => {
+  if (!fromOurPage(e)) throw new Error('not allowed');
+  try { return await fn(...a); } catch (err) { return { error: err.message || String(err) }; }
+});
+handle('sec:saveRecovery', k => security().saveRecovery(k));
+handle('sec:smtpInfo', () => security().smtpInfo());
+handle('sec:setSmtp', c => security().setSmtp(c));
+handle('sec:testMail', to => security().mail(to, 'Guardian test email', 'Password reset emails from Guardian will come from this address. All working.').then(() => true));
+handle('sec:sendReset', email => security().sendResetCode(email));
+handle('sec:checkReset', code => security().checkResetCode(code));
+handle('sec:challenge', () => security().newChallenge());
+handle('sec:passkeys', () => security().listPasskeys());
+handle('sec:addPasskey', p => security().addPasskey(p));
+handle('sec:removePasskey', id => security().removePasskey(id));
+handle('sec:verifyPasskey', a => security().verifyPasskey(a));
+handle('sec:wipe', () => security().wipe());
 
 // ---------- auto-update ----------
 function setupUpdates() {

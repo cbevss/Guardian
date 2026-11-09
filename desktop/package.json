@@ -8,10 +8,12 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "release": "electron-builder --win --x64 --publish always"
+    "release": "electron-builder --win --x64 --publish always",
+    "test": "node test/security.test.js"
   },
   "dependencies": {
-    "electron-updater": "^6.6.2"
+    "electron-updater": "^6.6.2",
+    "nodemailer": "^6.9.16"
   },
   "devDependencies": {
     "electron": "^44.0.0",
@@ -20,14 +22,36 @@
   "build": {
     "appId": "com.cbevss.guardian",
     "productName": "Guardian",
-    "files": ["main.js", "preload.js", "build/icon.png", "package.json"],
-    "extraResources": [
-      { "from": "../target/release/guardian-relay.exe", "to": "guardian-relay.exe" },
-      { "from": "../relay/web", "to": "web" }
+    "files": [
+      "main.js",
+      "preload.js",
+      "security.js",
+      "build/icon.png",
+      "package.json"
     ],
-    "directories": { "buildResources": "build", "output": "../dist/desktop" },
+    "extraResources": [
+      {
+        "from": "../target/release/guardian-relay.exe",
+        "to": "guardian-relay.exe"
+      },
+      {
+        "from": "../relay/web",
+        "to": "web"
+      }
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "../dist/desktop"
+    },
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.ico",
       "executableName": "Guardian"
     },
@@ -43,6 +67,13 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
     },
-    "publish": [{ "provider": "github", "owner": "cbevss", "repo": "Guardian", "releaseType": "release" }]
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "cbevss",
+        "repo": "Guardian",
+        "releaseType": "release"
+      }
+    ]
   }
 }
