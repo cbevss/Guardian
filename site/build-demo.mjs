@@ -20,7 +20,6 @@ const demoCss = `
   body * { cursor: default !important; }
   .nav-btn[data-page], .nav-btn[data-page] * { cursor: pointer !important; }
   input, textarea, select { caret-color: transparent; }
-  .demo-note { position: fixed; left: 12px; bottom: 46px; z-index: 300; font: 500 11px Inter, system-ui, sans-serif; color: #8189a6; background: rgba(18,21,29,.9); border: 1px solid #252c3f; padding: 5px 10px; border-radius: 20px; pointer-events: none; }
 </style>`;
 
 const demoJs = `
@@ -99,7 +98,6 @@ const demoJs = `
   sendClipboard = () => toast('Clipboard sent to his PC');
   // Pre-fill the Rules page each time it opens.
   document.getElementById('nav-rules').click(); goTo('requests');
-  document.body.insertAdjacentHTML('beforeend', '<div class="demo-note">Preview with example data</div>');
 
   // Look-only: block every click, typing and change except switching tabs. Scrolling still works.
   document.querySelectorAll('input, textarea, select').forEach(el => { el.readOnly = true; el.tabIndex = -1; });
