@@ -536,6 +536,8 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
 .unr-card.on { border-color: rgba(245,166,35,.45); background: rgba(245,166,35,.07); }
 .unr-pill { display:none; margin-top:8px; font-size:11px; font-weight:600; color:var(--warn); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); padding:4px 8px; border-radius:6px; text-align:center; }
 .unr-pill.on { display:block; }
+.hide-pill { color: var(--accent); background: rgba(79,124,255,.12); border-color: rgba(79,124,255,.3); }
+#hide-card.on { border-color: rgba(79,124,255,.45); background: rgba(79,124,255,.07); }
 
 /* ── Schedule ───────────────────────────────────────────────── */
 .schedule-card {
@@ -742,6 +744,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
       <span id="conn-label">Disconnected</span>
     </div>
     <div class="unr-pill" id="unr-pill">Unrestricted</div>
+    <div class="unr-pill hide-pill" id="hide-pill">His screen is hidden</div>
   </div>
 </nav>
 
@@ -910,6 +913,15 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
             <div class="rule-hint" id="unr-hint">Apps, websites and screen time follow the rules below.</div>
           </div>
           <button class="btn btn-warn" id="unr-btn">Remove all restrictions</button>
+        </div>
+      </div>
+      <div class="rule-card unr-card" id="hide-card" style="grid-column:1/-1">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <h3 id="hide-title">His screen is showing</h3>
+            <div class="rule-hint" id="hide-hint">Hide it to cover all his screens with the Guardian logo.</div>
+          </div>
+          <button class="btn btn-ghost" id="hide-btn">Hide his screen</button>
         </div>
       </div>
       <div class="rule-card">
@@ -1289,14 +1301,25 @@ function stopViewer() {
 
 function renderTopbarActions(page) {
   const bar = $('topbar-actions');
+  const keepMonitors = [...document.querySelectorAll('#monitors option')].map(o => o.cloneNode(true));
+  const keepIndex = document.getElementById('monitors')?.value;
   bar.innerHTML = '';
+  if (page === 'view' && linked) {
+    const hideBtn = document.createElement('button');
+    hideBtn.className = 'btn ' + (policy.screen_hidden ? 'btn-good' : 'btn-ghost');
+    hideBtn.innerHTML = policy.screen_hidden
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Show his screen'
+      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"/></svg> Hide his screen';
+    hideBtn.onclick = toggleScreenHidden;
+    bar.appendChild(hideBtn);
+  }
   if (page === 'view' && ws) {
     const monitors = document.createElement('select');
     monitors.id = 'monitors';
     monitors.style.cssText = 'font-size:12.5px;padding:5px 8px;';
     bar.appendChild(monitors);
-    // restore options if any
-    document.querySelectorAll('#monitors option').forEach(o => monitors.add(o.cloneNode(true)));
+    keepMonitors.forEach(o => monitors.add(o));
+    if (keepIndex != null) monitors.value = keepIndex;
     monitors.onchange = e => send({ type: 'select_monitor', index: +e.target.value });
 
     const ctrlBtn = document.createElement('button');
@@ -1341,7 +1364,7 @@ function toast(text, dur = 2600) {
 }
 function send(obj) { if (ws?.readyState === 1) ws.send(JSON.stringify(obj)); }
 function sendInbox(obj) { if (inbox?.readyState === 1) inbox.send(JSON.stringify(obj)); }
-const wsUrl = p => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${p}?id=${$('devid').value.trim()}`;
+const wsUrl = p => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${p}?id=${store.get('guardian.id') || $('devid').value.trim()}`;
 
 // ── Connection ───────────────────────────────────────────────
 function onConnected(on) {
@@ -1606,6 +1629,7 @@ $('rules-save').onclick = () => {
     allowed_sites: aSites, blocked_sites: bSites, ask_unknown_sites: $('askunknownsites').checked,
     schedule: { enabled: $('schedon').checked, days },
     unrestricted: !!policy.unrestricted,
+    screen_hidden: !!policy.screen_hidden,
   }});
   shownPolicy = { allowed, blocked, aSites, bSites };
   toast('Rules saved ✓');
@@ -1752,7 +1776,24 @@ function parentAlert(m) {
 }
 
 // ── Unrestricted mode ─────────────────────────────────────────
+function toggleScreenHidden() {
+  const p = { ...policy, screen_hidden: !policy.screen_hidden };
+  sendInbox({ type:'set_policy', policy: p });
+  policy = p; renderUnrestricted(); renderTopbarActions(currentPage);
+  toast(p.screen_hidden ? 'His screens now only show Guardian' : 'His screen is back');
+}
 function renderUnrestricted() {
+  const hid = !!policy.screen_hidden;
+  $('hide-card').classList.toggle('on', hid);
+  $('hide-pill').classList.toggle('on', hid);
+  $('hide-title').textContent = hid ? 'His screen is hidden' : 'His screen is showing';
+  $('hide-hint').textContent = hid
+    ? 'All his screens only show the Guardian logo. You can still watch and control his PC as normal.'
+    : 'Hide it to cover all his screens with the Guardian logo. You can still watch and control it.';
+  $('hide-btn').textContent = hid ? 'Show his screen' : 'Hide his screen';
+  $('hide-btn').className = 'btn ' + (hid ? 'btn-good' : 'btn-ghost');
+  $('hide-btn').onclick = toggleScreenHidden;
+  if (currentPage === 'view') renderTopbarActions('view');
   const on = !!policy.unrestricted;
   $('unr-card').classList.toggle('on', on);
   $('unr-pill').classList.toggle('on', on);

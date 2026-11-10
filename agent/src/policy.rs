@@ -53,6 +53,9 @@ pub struct Policy {
     /// "Unrestricted": every rule, request and the schedule switched off.
     #[serde(default)]
     pub unrestricted: bool,
+    /// "Hide screen": his monitors show only the Guardian logo.
+    #[serde(default)]
+    pub screen_hidden: bool,
 }
 
 impl Default for Policy {
@@ -60,7 +63,7 @@ impl Default for Policy {
         Self {
             blocked_apps: vec![], allowed_apps: vec![], ask_unknown: true,
             blocked_sites: vec![], allowed_sites: vec![], site_helpers: Default::default(), ask_unknown_sites: true,
-            schedule: Default::default(), unrestricted: false,
+            schedule: Default::default(), unrestricted: false, screen_hidden: false,
         }
     }
 }

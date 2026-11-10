@@ -20,6 +20,7 @@ mod clipboard;
 mod discovery;
 mod input;
 mod dns;
+mod overlay;
 mod policy;
 #[cfg(windows)]
 mod service;
@@ -258,6 +259,12 @@ async fn agent(installed: bool) {
     };
     tokio::spawn(policy::enforcer(shared.clone()));
     tokio::spawn(winsetup::schedule_enforcer(shared.clone()));
+    // "Hide screen": keep the cover in step with the rules and parent control.
+    { let s = shared.clone(); tokio::spawn(async move { loop {
+        let hidden = s.policy.read().map(|p| p.screen_hidden).unwrap_or(false);
+        overlay::update(hidden, s.parent_override.load(std::sync::atomic::Ordering::SeqCst));
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    } }); }
 
     // Website filter. Installed on Windows it listens on the normal DNS port and
     // Windows is pointed at it; when testing, set GUARDIAN_DNS_ADDR instead.
