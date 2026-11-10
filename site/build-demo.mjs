@@ -20,7 +20,7 @@ const demoCss = `
   body * { cursor: default !important; }
   .nav-btn[data-page], .nav-btn[data-page] * { cursor: pointer !important; }
   input, textarea, select { caret-color: transparent; }
-  .demo-note { position: fixed; right: 14px; bottom: 12px; z-index: 300; font: 500 11px Inter, system-ui, sans-serif; color: #8189a6; background: rgba(18,21,29,.9); border: 1px solid #252c3f; padding: 5px 10px; border-radius: 20px; pointer-events: none; }
+  .demo-note { position: fixed; left: 12px; bottom: 46px; z-index: 300; font: 500 11px Inter, system-ui, sans-serif; color: #8189a6; background: rgba(18,21,29,.9); border: 1px solid #252c3f; padding: 5px 10px; border-radius: 20px; pointer-events: none; }
 </style>`;
 
 const demoJs = `

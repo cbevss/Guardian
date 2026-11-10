@@ -562,10 +562,11 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
   gap: 8px;
   margin-top: 12px;
 }
-@media (max-width: 600px) { .days-grid { grid-template-columns: 1fr; } }
-.day-col { display: flex; flex-direction: column; gap: 5px; }
+@media (max-width: 900px) { .days-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 600px) { .days-grid { grid-template-columns: 1fr 1fr; } }
+.day-col { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.day-col input { padding: 6px 8px; font-size: 12px; }
+.day-col input { padding: 6px 8px; font-size: 12px; width: 100%; min-width: 0; }
 
 /* ── Toast ──────────────────────────────────────────────────── */
 #toast-wrap {

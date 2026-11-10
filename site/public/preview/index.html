@@ -563,10 +563,11 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
   gap: 8px;
   margin-top: 12px;
 }
-@media (max-width: 600px) { .days-grid { grid-template-columns: 1fr; } }
-.day-col { display: flex; flex-direction: column; gap: 5px; }
+@media (max-width: 900px) { .days-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 600px) { .days-grid { grid-template-columns: 1fr 1fr; } }
+.day-col { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.day-col input { padding: 6px 8px; font-size: 12px; }
+.day-col input { padding: 6px 8px; font-size: 12px; width: 100%; min-width: 0; }
 
 /* ── Toast ──────────────────────────────────────────────────── */
 #toast-wrap {
@@ -658,7 +659,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
   body * { cursor: default !important; }
   .nav-btn[data-page], .nav-btn[data-page] * { cursor: pointer !important; }
   input, textarea, select { caret-color: transparent; }
-  .demo-note { position: fixed; right: 14px; bottom: 12px; z-index: 300; font: 500 11px Inter, system-ui, sans-serif; color: #8189a6; background: rgba(18,21,29,.9); border: 1px solid #252c3f; padding: 5px 10px; border-radius: 20px; pointer-events: none; }
+  .demo-note { position: fixed; left: 12px; bottom: 46px; z-index: 300; font: 500 11px Inter, system-ui, sans-serif; color: #8189a6; background: rgba(18,21,29,.9); border: 1px solid #252c3f; padding: 5px 10px; border-radius: 20px; pointer-events: none; }
 </style>
 <script>window.guardianDesktop = { request() {}, show() {}, version: async () => '1.0.30', serverBase: async () => '',
   sec: async name => name === 'passkeys' ? [{ id: 'p1', name: 'Windows Hello on this PC', created: Date.now() - 86400000 * 3 }] : { ok: false } };</script>
