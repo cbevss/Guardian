@@ -12,8 +12,7 @@
     "test": "node test/security.test.js"
   },
   "dependencies": {
-    "electron-updater": "^6.6.2",
-    "nodemailer": "^6.9.16"
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "electron": "^44.0.0",
@@ -26,6 +25,7 @@
       "main.js",
       "preload.js",
       "security.js",
+      "config.js",
       "build/icon.png",
       "package.json"
     ],
