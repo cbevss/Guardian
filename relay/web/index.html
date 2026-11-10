@@ -1220,7 +1220,8 @@ const serverSays = r => ({
   bad_email: 'Type a valid email address', short_password: 'Use at least 8 characters for the password',
   exists: 'That email already has an account. Go back and sign in.', wait: 'A code was sent less than a minute ago. Check your inbox and spam folder.',
   wrong: 'That code is wrong. Check the email and try again.', expired: 'That code has expired. Ask for a new one.',
-  mail_not_set_up: "Guardian's email isn't set up yet, so codes can't be sent.", browser: 'Accounts work in the Guardian app.',
+  mail_not_set_up: "Guardian's email isn't set up yet, so codes can't be sent.",
+  mail_failed: "Guardian couldn't send the email. Try again in a minute.", mail_timeout: "Guardian couldn't send the email. Try again in a minute.", browser: 'Accounts work in the Guardian app.',
 }[r?.error] || "Something went wrong. Try again in a minute.");
 
 let lockView = 'login', pendingPw = '', localFails = 0, lockUntil = 0;

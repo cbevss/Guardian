@@ -77,9 +77,20 @@ async function sendMail(env, to, subject, text) {
   }
   const m = await getMailSettings(env);
   if (!m) throw new Error('mail_not_set_up');
-  await WorkerMailer.send(
-    { host: m.host, port: m.port, secure: m.port === 465, startTls: m.port !== 465, credentials: { username: m.user, password: m.pass }, authType: ['plain', 'login'] },
-    { from: { name: 'Guardian', email: m.user }, to, subject, text });
+  const msg = { from: { name: 'Guardian', email: m.user }, to, subject, text };
+  const attempt = (port) => {
+    const sending = WorkerMailer.send(
+      { host: m.host, port, secure: port === 465, startTls: port !== 465, credentials: { username: m.user, password: m.pass }, authType: ['plain', 'login'] }, msg);
+    const timeout = new Promise((_, no) => setTimeout(() => no(new Error('mail_timeout')), 12000));
+    return Promise.race([sending, timeout]);
+  };
+  // Try the saved port; if it hangs or fails, try the other usual one (465 <-> 587).
+  try { await attempt(m.port); }
+  catch (first) {
+    const other = m.port === 465 ? 587 : 465;
+    try { await attempt(other); }
+    catch (second) { console.log('mail failed', m.host, m.port, String(first), other, String(second)); throw new Error('mail_failed'); }
+  }
 }
 
 // ---------- codes ----------
@@ -128,7 +139,10 @@ async function api(req, env, path) {
   const body = req.method === 'POST' || req.method === 'PUT' ? await req.json().catch(() => ({})) : {};
   const email = cleanEmail(body.email);
 
-  if (path === '/api/health') return json({ ok: true });
+  if (path === '/api/health') {
+    const m = await getMailSettings(env);
+    return json({ ok: true, mail: m ? { host: m.host, port: m.port, from: m.user.replace(/^(.).*(@.*)$/, '$1***$2') } : null });
+  }
 
   if (path === '/api/signup' && req.method === 'POST') {
     if (!validEmail(email)) return fail('bad_email');
@@ -140,7 +154,8 @@ async function api(req, env, path) {
       'ON CONFLICT(email) DO UPDATE SET pw_hash = excluded.pw_hash, pw_salt = excluded.pw_salt').bind(email, hash, salt, now()).run();
     const c = await issueCode(env, email, 'verify');
     if (!c.ok) return fail(c.error, 429);
-    try { await sendMail(env, email, 'Your Guardian code', verifyText(c.code)); } catch (e) { return fail(e.message || 'mail_failed', 502); }
+    try { await sendMail(env, email, 'Your Guardian code', verifyText(c.code)); }
+    catch (e) { await env.DB.prepare('DELETE FROM codes WHERE email = ? AND purpose = ?').bind(email, 'verify').run(); return fail(e.message || 'mail_failed', 502); }
     return json({ ok: true });
   }
 
@@ -177,7 +192,8 @@ async function api(req, env, path) {
     if (a?.verified) {
       const c = await issueCode(env, email, 'reset');
       if (!c.ok) return fail(c.error, 429);
-      try { await sendMail(env, email, 'Your Guardian reset code', resetText(c.code, !!body.auto)); } catch (e) { return fail(e.message || 'mail_failed', 502); }
+      try { await sendMail(env, email, 'Your Guardian reset code', resetText(c.code, !!body.auto)); }
+      catch (e) { await env.DB.prepare('DELETE FROM codes WHERE email = ? AND purpose = ?').bind(email, 'reset').run(); return fail(e.message || 'mail_failed', 502); }
     }
     return json({ ok: true });
   }

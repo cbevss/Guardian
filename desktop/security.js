@@ -33,7 +33,7 @@ function createSecurity({ file, safeStorage, apiBase, fetchImpl = fetch }) {
     if (!/^\/api\/[a-z0-9/_-]+$/.test(path) || !['GET', 'POST', 'PUT'].includes(method)) return { ok: false, error: 'bad_request' };
     try {
       const r = await fetchImpl(apiBase + path, {
-        method, headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },
+        signal: AbortSignal.timeout(45000), method, headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },
         body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
       });
       return await r.json();
