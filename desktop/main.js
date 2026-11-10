@@ -142,6 +142,8 @@ ipcMain.on('guardian:request', () => {
   win.flashFrame(true);
 });
 ipcMain.handle('guardian:version', () => app.getVersion());
+ipcMain.handle('guardian:appFolder', () => path.dirname(process.execPath));
+ipcMain.on('guardian:openAppFolder', () => shell.openPath(path.dirname(process.execPath)));
 ipcMain.handle('guardian:server', () => process.env.GUARDIAN_API || require('./config').API_BASE);
 
 // ---------- account security (see security.js) ----------

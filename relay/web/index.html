@@ -532,6 +532,9 @@ label.btn { cursor:pointer; }
 .rec-dot { width:8px; height:8px; border-radius:50%; background:#fff; animation:pulse 1s infinite; }
 @keyframes pulse { 50% { opacity:.3; } }
 
+/* ── App folder ── */
+.folder-path { display:block; font-size:12px; padding:9px 11px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--fg); word-break:break-all; user-select:all; }
+
 /* ── Admin ── */
 #page-admin { overflow-y:auto; padding:24px; }
 .admin-wrap { max-width:760px; display:flex; flex-direction:column; gap:14px; }
@@ -860,6 +863,13 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid, body:not(.linked)
           <button class="btn btn-primary" id="cp-go" style="justify-content:center">Change password</button>
         </div>
       </details>
+    </div>
+
+    <div class="connect-card desk-only" id="appfolder-card">
+      <h2 style="font-size:17px">App folder</h2>
+      <div class="rule-hint" style="margin-top:-8px">Where Guardian is installed on this PC. Add this folder to your antivirus exclusions if it ever blocks Guardian.</div>
+      <code class="folder-path" id="app-folder"></code>
+      <button class="btn btn-secondary" id="open-folder" style="justify-content:center">Open in File Explorer</button>
     </div>
 
     <div class="connect-card desk-only" id="passkey-card">
@@ -1793,6 +1803,12 @@ if (window.guardianDesktop?.win) {
     ? '<svg width="10" height="10" viewBox="0 0 10 10"><rect x="2.5" y=".5" width="7" height="7" fill="none" stroke="currentColor"/><path d="M.5 2.5v7h7" fill="none" stroke="currentColor"/></svg>'
     : '<svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg>';
   w.isMax().then(maxIcon); w.onMax(maxIcon);
+}
+
+// ── App folder ──
+if (window.guardianDesktop?.appFolder) {
+  window.guardianDesktop.appFolder().then(p => { $('app-folder').textContent = p; });
+  $('open-folder').onclick = () => window.guardianDesktop.openAppFolder();
 }
 
 // ── Account settings ──
