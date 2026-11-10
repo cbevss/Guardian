@@ -58,7 +58,7 @@ async function getMailSettings(env) {
     } catch { /* fall through to the deploy-time secrets */ }
   }
   if (env.SMTP_USER && env.SMTP_PASS) {
-    return { host: env.SMTP_HOST || 'smtp.mail.me.com', port: Number(env.SMTP_PORT) || 587, user: env.SMTP_USER, pass: env.SMTP_PASS };
+    return { host: env.SMTP_HOST || 'smtp.mail.me.com', port: Number(env.SMTP_PORT) || 587, user: env.SMTP_USER.trim(), pass: env.SMTP_PASS.replace(/\s+/g, '') };
   }
   return null;
 }
