@@ -146,11 +146,20 @@ const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting
 document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 setTimeout(() => document.querySelectorAll('.reveal').forEach(el => { if (el.getBoundingClientRect().top < innerHeight) el.classList.add('in'); }), 1200);
 
-// Cards: glow follows the mouse.
-document.querySelectorAll('.feat, .dl-card').forEach(c => c.addEventListener('pointermove', e => {
-  const r = c.getBoundingClientRect();
-  c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px');
-}));
+// Cards: glow follows the mouse, including while the page scrolls under it.
+const cards = [...document.querySelectorAll('.feat, .dl-card')];
+let px = -1e4, py = -1e4;
+function placeGlow() {
+  for (const c of cards) {
+    const r = c.getBoundingClientRect();
+    if (py < r.top - 300 || py > r.bottom + 300) continue;
+    c.style.setProperty('--mx', (px - r.left) + 'px'); c.style.setProperty('--my', (py - r.top) + 'px');
+    c.classList.toggle('lit', px >= r.left && px <= r.right && py >= r.top && py <= r.bottom);
+  }
+}
+addEventListener('pointermove', e => { px = e.clientX; py = e.clientY; placeGlow(); }, { passive: true });
+addEventListener('scroll', () => requestAnimationFrame(placeGlow), { passive: true });
+document.addEventListener('pointerleave', () => { px = py = -1e4; placeGlow(); });
 
 // Scroll: progress bar, nav shadow, screenshot tilts flat as you scroll.
 const shot = document.getElementById('shot'), nav = document.querySelector('.nav'), bar = document.querySelector('.progress');
@@ -170,11 +179,15 @@ onScroll();
 
 // Screenshot: tilts toward the mouse, with a light sheen.
 if (!reduce && matchMedia('(hover: hover)').matches) {
-  shot.addEventListener('pointermove', e => {
-    const r = shot.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  const tiltShot = (cx, cy) => {
+    const r = shot.getBoundingClientRect(), x = (cx - r.left) / r.width, y = (cy - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return false;
     shot.style.setProperty('--ry', ((x - .5) * 8) + 'deg'); shot.style.setProperty('--rx', ((.5 - y) * 6) + 'deg');
     shot.style.setProperty('--gx', x * 100 + '%'); shot.style.setProperty('--gy', y * 100 + '%');
-  });
+    return true;
+  };
+  shot.addEventListener('pointermove', e => tiltShot(e.clientX, e.clientY));
+  addEventListener('scroll', () => requestAnimationFrame(() => { if (!tiltShot(px, py)) { shot.style.setProperty('--ry', '0deg'); } }), { passive: true });
   shot.addEventListener('pointerleave', () => { shot.style.setProperty('--ry', '0deg'); onScroll(); });
 }
 
