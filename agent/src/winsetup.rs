@@ -58,6 +58,14 @@ pub fn lock_screen() { run("rundll32.exe", &["user32.dll,LockWorkStation"]); }
 #[cfg(not(windows))] pub fn apply_browser_policies() {}
 #[cfg(not(windows))] pub fn lock_screen() { println!("[schedule] outside allowed hours: screen locked"); }
 
+/// True when someone is at the desktop (Windows' lock screen isn't showing).
+fn at_desktop() -> bool {
+    let mut sys = sysinfo::System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    let names: Vec<String> = sys.processes().values().map(|p| p.name().to_string_lossy().to_lowercase()).collect();
+    names.iter().any(|n| n == "explorer.exe" || cfg!(not(windows))) && !names.iter().any(|n| n == "logonui.exe")
+}
+
 /// Keeps the settings in place (e.g. a new Wi-Fi adapter appears).
 pub async fn keep_applied() {
     loop {
@@ -70,9 +78,17 @@ pub async fn keep_applied() {
 pub async fn schedule_enforcer(shared: crate::policy::Shared) {
     let mut was_allowed = true;
     loop {
-        let allowed = shared.schedule_allows_now();
+        // Count time used while he's signed in and at the desktop (not the lock screen).
+        let in_use = tokio::task::spawn_blocking(at_desktop).await.unwrap_or(false);
+        if in_use && !shared.overridden() { crate::activity::add_seconds(15); }
+        let within_hours = shared.schedule_allows_now();
+        let time_left = shared.time_left();
+        let allowed = within_hours && time_left;
         if !allowed {
-            if was_allowed { println!("[schedule] outside allowed hours"); }
+            if was_allowed {
+                println!("[schedule] PC locked");
+                crate::activity::log("time", if !time_left { "Daily time limit reached, PC locked" } else { "Outside allowed hours, PC locked" });
+            }
             let _ = tokio::task::spawn_blocking(lock_screen).await;
         } else if !was_allowed {
             println!("[schedule] allowed hours started");

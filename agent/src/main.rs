@@ -20,7 +20,9 @@ mod clipboard;
 mod discovery;
 mod input;
 mod dns;
+mod activity;
 mod overlay;
+mod tools;
 mod policy;
 #[cfg(windows)]
 mod service;
@@ -197,6 +199,16 @@ enum ParentMsg {
     ApproveParent { id: String },
     DenyParent { id: String },
     RemoveParent { id: String },
+    // ----- tools -----
+    Power { action: String },
+    Message { text: String },
+    ListApps,
+    CloseApp { home: String },
+    GetActivity { #[serde(default)] day: String },
+    AddTime { minutes: u32 },
+    ListDir { #[serde(default)] path: String },
+    GetFile { id: String, path: String },
+    PutFile { id: String, name: String, offset: u64, data: String, #[serde(default)] last: bool },
 }
 
 fn main() {
@@ -238,6 +250,7 @@ async fn agent(installed: bool) {
     if let Some(h) = cfg.relay.split("://").nth(1).and_then(|r| r.split(['/', ':']).next()) {
         always.push(policy::site_of(h)); always.push(h.to_string());
     }
+    activity::init(config_path().parent().map(|p| p.to_path_buf()).unwrap_or_else(std::env::temp_dir));
     let shared = policy::Shared::new(cfg.policy.clone(), always, move |p| {
         let mut c = save_disk.lock().unwrap(); c.policy = p.clone();
         let _ = std::fs::write(config_path(), serde_json::to_string_pretty(&*c).unwrap());
@@ -451,6 +464,51 @@ async fn run(cfg: &Config, relay: &str, shared: &policy::Shared, roster: &Roster
                                     out_tx.send(text(json!({"type":"hello","monitors":capture::list_monitors(),"policy":pol}))).await?;
                                 }
                                 broadcast_roster(&out_tx, &parents, shared, roster).await?;
+                            }
+                            ParentMsg::Power { action } if authed => {
+                                let ok = tools::power(&action);
+                                out_tx.send(to_parent(pid, json!({"type":"tool_done","what":"power","ok":ok}))).await?;
+                            }
+                            ParentMsg::Message { text } if authed => {
+                                tools::message(&text);
+                                out_tx.send(to_parent(pid, json!({"type":"tool_done","what":"message","ok":true}))).await?;
+                            }
+                            ParentMsg::ListApps if authed => {
+                                let list = tokio::task::spawn_blocking(policy::Shared::running_apps).await.unwrap_or_default();
+                                let apps: Vec<_> = list.into_iter().map(|(home, name, pids, mem)| json!({"home":home,"name":name,"count":pids.len(),"memory":mem})).collect();
+                                out_tx.send(to_parent(pid, json!({"type":"apps","apps":apps}))).await?;
+                            }
+                            ParentMsg::CloseApp { home } if authed => {
+                                let h = home.clone();
+                                let n = tokio::task::spawn_blocking(move || policy::Shared::close_app(&h)).await.unwrap_or(0);
+                                if n > 0 { activity::log("closed", format!("{} closed by a parent", apps::display_name(&home))); }
+                                out_tx.send(to_parent(pid, json!({"type":"tool_done","what":"close_app","ok":n > 0}))).await?;
+                            }
+                            ParentMsg::GetActivity { day } if authed => {
+                                let items = activity::read(&day);
+                                out_tx.send(to_parent(pid, json!({"type":"activity","day":day,"items":items,"days":activity::days(),
+                                    "usage":activity::usage_json(shared.limit_today())}))).await?;
+                            }
+                            ParentMsg::AddTime { minutes } if authed => {
+                                let _ = activity::add_bonus(minutes.min(600));
+                                out_tx.send(to_parent(pid, json!({"type":"usage","usage":activity::usage_json(shared.limit_today())}))).await?;
+                            }
+                            ParentMsg::ListDir { path } if authed => {
+                                let v = tokio::task::spawn_blocking(move || tools::list_dir(&path)).await.unwrap_or(json!({}));
+                                out_tx.send(to_parent(pid, json!({"type":"dir","listing":v}))).await?;
+                            }
+                            ParentMsg::GetFile { id, path } if authed => {
+                                let tx = out_tx.clone();
+                                tokio::task::spawn_blocking(move || tools::read_file(&id, &path, |m| tx.blocking_send(to_parent(pid, m)).is_ok()));
+                            }
+                            ParentMsg::PutFile { id, name, offset, data, last } if authed => {
+                                let r = tokio::task::spawn_blocking(move || tools::put_chunk(&name, offset, &data, last)).await.unwrap_or(Err("failed".into()));
+                                let msg = match r {
+                                    Ok(Some(path)) => json!({"type":"file_saved","id":id,"path":path}),
+                                    Ok(None) => json!({"type":"file_ack","id":id,"offset":offset}),
+                                    Err(e) => json!({"type":"file_saved","id":id,"error":e}),
+                                };
+                                out_tx.send(to_parent(pid, msg)).await?;
                             }
                             ParentMsg::DenyParent { id } if authed => {
                                 roster.waiting.lock().unwrap().remove(&id);

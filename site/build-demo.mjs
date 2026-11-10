@@ -32,8 +32,25 @@ const demoJs = `
   store.set('guardian.account_email', 'parent@example.com');
   vault.code = 'demo';
   // No networking in the preview.
+  // A pretend connection, so replies go through the app's own message handling.
+  window.WebSocket = class { constructor() { this.readyState = 1; } send() {} close() {} };
+  startInbox('482913577', 'demo');
   startInbox = () => {}; startViewer = () => {}; stopViewer = () => {};
+  const T = now / 1000, ago = m => T - m * 60;
+  const demoActivity = [
+    [3,'site','Visited youtube.com'],[9,'app','Opened Steam'],[14,'decision','twitch.tv: Denied'],[15,'request','Asked to visit twitch.tv'],
+    [22,'blocked','Tried to open Fortnite (blocked)'],[31,'site','Visited bbc.co.uk'],[40,'closed','Closed Homework app'],[58,'app','Opened Homework app'],
+    [75,'time','30 minutes of extra time given'],[96,'site','Visited wikipedia.org'],[120,'app','Opened Steam']].map(([m,kind,text]) => ({ t: ago(m), kind, text }));
+  const demoDirs = {
+    '': [['Desktop',1],['Documents',1],['Downloads',1],['Pictures',1],['Videos',1],['Music',1],['Drive C:',1]],
+    'Documents': [['School',1],['Science project.docx',0,184320],['Reading log.xlsx',0,22016],['Notes.txt',0,1204]],
+  };
+  const reply = m => setTimeout(() => inbox.onmessage({ data: JSON.stringify(m) }), 120);
   sendInbox = msg => {
+    if (msg.type === 'get_activity') reply({ type:'activity', day:'', items: demoActivity, days:[new Date().toISOString().slice(0,10)], usage:{ used_minutes: 74, limit_minutes: 120, bonus_minutes: 30 } });
+    if (msg.type === 'list_apps') reply({ type:'apps', apps:[{ home:'c:/program files (x86)/steam', name:'Steam', count:6, memory: 412e6 }, { home:'c:/users/child/appdata/local/homework', name:'Homework app', count:1, memory: 96e6 }] });
+    if (msg.type === 'list_dir') { const key = msg.path.split(/[\\/]/).pop() || ''; const list = demoDirs[key] || demoDirs['Documents'];
+      reply({ type:'dir', listing:{ path: msg.path, entries: list.map(([name, dir, size]) => ({ name, dir: !!dir, size, path: (msg.path ? msg.path + '/' : 'C:/Users/Child/') + name, mtime: T - 86400 * 2 })) } }); }
     if (msg.type === 'decide') { queue = queue.filter(r => r.app !== msg.app); renderQueue(); toast(msg.decision === 'Deny' ? 'Denied' : msg.decision === 'Temporary' ? 'Temporary access given' : 'Approved'); }
     if (msg.type === 'set_policy') { policy = msg.policy; renderUnrestricted(); }
     if (msg.type === 'approve_parent') { const w = waitingParents.find(x => x.id === msg.id); waitingParents = waitingParents.filter(x => x.id !== msg.id); if (w) parentList.push({ id: w.id, name: w.name, added: now / 1000 }); renderParents(); }

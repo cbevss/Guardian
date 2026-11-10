@@ -56,6 +56,9 @@ pub struct Policy {
     /// "Hide screen": his monitors show only the Guardian logo.
     #[serde(default)]
     pub screen_hidden: bool,
+    /// Most minutes the PC can be used each day ("mon".."sun"); missing = no limit.
+    #[serde(default)]
+    pub daily_limits: BTreeMap<String, u32>,
 }
 
 impl Default for Policy {
@@ -63,7 +66,7 @@ impl Default for Policy {
         Self {
             blocked_apps: vec![], allowed_apps: vec![], ask_unknown: true,
             blocked_sites: vec![], allowed_sites: vec![], site_helpers: Default::default(), ask_unknown_sites: true,
-            schedule: Default::default(), unrestricted: false, screen_hidden: false,
+            schedule: Default::default(), unrestricted: false, screen_hidden: false, daily_limits: Default::default(),
         }
     }
 }
@@ -233,6 +236,7 @@ pub struct Shared {
     pub policy: Arc<RwLock<Policy>>,
     /// true while a parent is actively controlling: restrictions paused.
     pub parent_override: Arc<AtomicBool>,
+    open_apps: Arc<Mutex<std::collections::BTreeMap<String, String>>>,
     pub pending: Arc<Mutex<BTreeMap<String, Request>>>,
     temp: Arc<Mutex<HashMap<String, TempGrant>>>,
     temp_sites: Arc<Mutex<HashMap<String, Instant>>>,
@@ -251,6 +255,7 @@ impl Shared {
         Self {
             policy: Arc::new(RwLock::new(p.sanitized())),
             parent_override: Arc::new(AtomicBool::new(false)),
+            open_apps: Default::default(),
             pending: Default::default(),
             temp: Default::default(),
             temp_sites: Default::default(),
@@ -303,6 +308,7 @@ impl Shared {
         let mut pending = self.pending.lock().unwrap();
         if pending.contains_key(&key) { return; }
         let req = Request { app: key.clone(), kind: kind.into(), name, path, requested_at: now_secs() };
+        crate::activity::log("request", format!("Asked to {} {}", if kind == "site" { "visit" } else { "open" }, req.name));
         pending.insert(key, req.clone());
         let _ = self.events.send(Event::NewRequest(req));
     }
@@ -337,6 +343,8 @@ impl Shared {
             }
         }
         println!("[policy] {key}: {d:?}");
+        let what = key.strip_prefix("site:").map(String::from).unwrap_or_else(|| apps::display_name(&key));
+        crate::activity::log("decision", format!("{what}: {}", match d { Decision::Temporary => "Temporary Access", Decision::Approve => "Approved", Decision::Deny => "Denied" }));
         let label = match d { Decision::Temporary => "Temporary Access", Decision::Approve => "Approve", Decision::Deny => "Deny" };
         let _ = self.events.send(Event::Resolved { app: key, decision: label.into() });
         true
@@ -345,7 +353,7 @@ impl Shared {
     // ------------------------------------------------------------- apps
 
     fn enforce_apps(&self) {
-        if self.overridden() { return; }
+        if self.overridden() { self.track_open_apps(); return; }
         let pol = self.policy.read().unwrap().clone();
         let mut sys = sysinfo::System::new();
         sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
@@ -357,7 +365,11 @@ impl Shared {
             let exe = p.exe().map(|e| apps::norm(&e.to_string_lossy())).unwrap_or_default();
 
             if pol.blocked_apps.iter().any(|r| Policy::app_rule_matches(r, &name, &exe)) {
-                if p.kill() { println!("[policy] closed denied app {name}"); }
+                if p.kill() {
+                    println!("[policy] closed denied app {name}");
+                    let label = if exe.is_empty() { name.clone() } else { apps::display_name(&apps::app_home(&exe, "")) };
+                    crate::activity::log_once(&format!("blocked:{label}"), Duration::from_secs(300), "blocked", format!("Tried to open {label} (blocked)"));
+                }
                 continue;
             }
             if pol.allowed_apps.iter().any(|r| Policy::app_rule_matches(r, &name, &exe)) || !pol.ask_unknown { continue; }
@@ -374,6 +386,8 @@ impl Shared {
             self.request(home.clone(), "app", apps::display_name(&home), exe);
         }
 
+        drop(sys);
+        self.track_open_apps();
         // Temporary Access ends when the whole app is closed (or never opened in time).
         self.temp.lock().unwrap().retain(|home, g| {
             let keep = if g.seen_running { running_homes.contains(home) } else { g.granted.elapsed() < TEMP_START_WINDOW };
@@ -385,7 +399,70 @@ impl Shared {
     // ------------------------------------------------------------- sites
 
     /// Called by the DNS filter for every lookup. true = let it through.
+    /// For the activity history: which of his apps are open now (by app folder).
+    pub fn running_apps() -> Vec<(String, String, Vec<u32>, u64)> {
+        let mut sys = sysinfo::System::new();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        let mut by_home: std::collections::BTreeMap<String, (String, Vec<u32>, u64)> = Default::default();
+        for p in sys.processes().values() {
+            let name = p.name().to_string_lossy().to_lowercase();
+            if PROTECTED.contains(&name.as_str()) { continue; }
+            let exe = p.exe().map(|e| apps::norm(&e.to_string_lossy())).unwrap_or_default();
+            if exe.is_empty() || !is_user_app(&exe, p) { continue; }
+            let home = apps::app_home(&exe, "");
+            let e = by_home.entry(home.clone()).or_insert_with(|| (apps::display_name(&home), vec![], 0));
+            e.1.push(p.pid().as_u32()); e.2 += p.memory();
+        }
+        by_home.into_iter().map(|(h, (n, pids, mem))| (h, n, pids, mem)).collect()
+    }
+    fn track_open_apps(&self) {
+        let now: std::collections::BTreeMap<String, String> = Self::running_apps().into_iter().map(|(h, n, _, _)| (h, n)).collect();
+        let mut open = self.open_apps.lock().unwrap();
+        for (h, n) in &now { if !open.contains_key(h) { crate::activity::log("app", format!("Opened {n}")); } }
+        for (h, n) in open.iter() { if !now.contains_key(h) { crate::activity::log("closed", format!("Closed {n}")); } }
+        *open = now;
+    }
+    /// Closes every program in one app's folder (from the Tools page).
+    pub fn close_app(home: &str) -> usize {
+        let mut n = 0;
+        let mut sys = sysinfo::System::new();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        for p in sys.processes().values() {
+            let exe = p.exe().map(|e| apps::norm(&e.to_string_lossy())).unwrap_or_default();
+            if !exe.is_empty() && apps::app_home(&exe, "") == home && is_user_app(&exe, p) && p.kill() { n += 1; }
+        }
+        n
+    }
+
+    /// Today's daily limit in minutes, if one is set.
+    pub fn limit_today(&self) -> Option<u32> {
+        use chrono::Datelike;
+        const DAYS: [&str; 7] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+        let d = DAYS[chrono::Local::now().weekday().num_days_from_monday() as usize];
+        self.policy.read().unwrap().daily_limits.get(d).copied()
+    }
+    /// False once today's limit (plus any extra time) is used up.
+    pub fn time_left(&self) -> bool {
+        if self.overridden() { return true; }
+        match self.limit_today() {
+            Some(limit) => { let u = crate::activity::usage(); u.seconds < (limit as u64 + u.bonus_minutes as u64) * 60 }
+            None => true,
+        }
+    }
+
     pub fn allow_domain(&self, domain: &str) -> bool {
+        let ok = self.allow_domain_inner(domain);
+        let d = domain.trim_end_matches('.').to_lowercase();
+        if d.contains('.') && !d.ends_with(".local") && !d.ends_with(".lan") && !d.ends_with(".arpa") {
+            let site = site_of(&d);
+            if !INFRA.contains(&site.as_str()) && !self.always_allow.iter().any(|a| *a == site) {
+                if ok { crate::activity::log_once(&format!("site:{site}"), Duration::from_secs(600), "site", format!("Visited {site}")); }
+                else { crate::activity::log_once(&format!("nosite:{site}"), Duration::from_secs(600), "blocked", format!("Tried to visit {site} (blocked)")); }
+            }
+        }
+        ok
+    }
+    fn allow_domain_inner(&self, domain: &str) -> bool {
         let domain = domain.trim_end_matches('.').to_lowercase();
         if !domain.contains('.') || domain.ends_with(".local") || domain.ends_with(".lan") || domain.ends_with(".home.arpa") {
             return true; // local network names
@@ -443,7 +520,7 @@ impl Shared {
 /// Is this a program he opened (worth asking about), rather than part of
 /// Windows, Guardian, or a background service?
 #[cfg(windows)]
-fn is_user_app(exe: &str, p: &sysinfo::Process) -> bool {
+pub(crate) fn is_user_app(exe: &str, p: &sysinfo::Process) -> bool {
     let windir = apps::norm(&std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into()));
     if apps::inside(exe, &windir) || exe.contains("/program files/guardian/") { return false; }
     // Skip system accounts (SYSTEM, LOCAL SERVICE, NETWORK SERVICE).
@@ -455,7 +532,7 @@ fn is_user_app(exe: &str, p: &sysinfo::Process) -> bool {
 
 /// Elsewhere (testing only): programs inside GUARDIAN_TEST_APPS count as his apps.
 #[cfg(not(windows))]
-fn is_user_app(exe: &str, _p: &sysinfo::Process) -> bool {
+pub(crate) fn is_user_app(exe: &str, _p: &sysinfo::Process) -> bool {
     std::env::var("GUARDIAN_TEST_APPS").map_or(false, |d| apps::inside(exe, &apps::norm(&d)))
 }
 

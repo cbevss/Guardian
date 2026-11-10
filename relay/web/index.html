@@ -484,6 +484,54 @@ body.framed .modal-backdrop { top: 34px; }
 .lock-link { background:none; border:none; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
 .lock-link:hover { color:var(--fg); }
 
+/* ── Activity & tools ── */
+#page-activity, #page-tools { overflow-y:auto; padding:24px; }
+.act-wrap { max-width:900px; display:flex; flex-direction:column; gap:14px; }
+.tools-grid { max-width:900px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:760px) { .tools-grid { grid-template-columns:1fr; } }
+.tools-grid textarea { width:100%; }
+.usage-top { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+.usage-big { font-size:30px; font-weight:700; letter-spacing:-.5px; font-variant-numeric:tabular-nums; }
+.usage-btns { display:flex; gap:6px; flex-wrap:wrap; }
+.usage-bar { height:8px; border-radius:6px; background:var(--bg); border:1px solid var(--border); overflow:hidden; }
+.usage-fill { height:100%; width:0; background:linear-gradient(90deg, var(--accent), #7b9bff); border-radius:6px; transition:width .6s ease; }
+.usage-fill.over { background:linear-gradient(90deg, var(--warn), var(--bad)); }
+.act-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.act-nav { display:flex; align-items:center; gap:6px; }
+.act-nav span { min-width:110px; text-align:center; font-size:13px; font-weight:600; }
+.act-nav select { font-size:12.5px; padding:5px 8px; }
+.act-nav .btn { padding:4px 10px; font-size:15px; }
+.act-list { display:flex; flex-direction:column; }
+.act-row { display:grid; grid-template-columns:56px 26px 1fr; align-items:center; gap:8px; padding:8px 4px; border-bottom:1px solid var(--border); font-size:13px; animation:cardIn .2s ease both; }
+.act-row:last-child { border-bottom:none; }
+.act-time { color:var(--muted); font-variant-numeric:tabular-nums; font-size:12px; }
+.act-dot { width:22px; height:22px; border-radius:7px; display:grid; place-items:center; font-size:11px; }
+.k-app,.k-closed { background:rgba(79,124,255,.15); color:var(--accent); }
+.k-site { background:rgba(52,209,122,.13); color:var(--good); }
+.k-blocked { background:rgba(255,85,85,.13); color:var(--bad); }
+.k-request,.k-decision { background:rgba(245,166,35,.13); color:var(--warn); }
+.k-time,.k-power,.k-message,.k-file,.k-screen { background:var(--border); color:var(--muted); }
+.act-empty { color:var(--muted); font-size:13px; padding:18px 4px; }
+.power-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.power-grid .btn { justify-content:center; }
+.power-grid .btn.confirm { outline:2px solid currentColor; }
+.app-row .pinfo .psub { font-variant-numeric:tabular-nums; }
+.crumbs { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size:12.5px; color:var(--muted); }
+.crumbs button { background:none; border:none; color:var(--accent); font:inherit; cursor:pointer; padding:2px 4px; border-radius:5px; }
+.crumbs button:hover { background:var(--border); }
+.file-list { max-height:420px; overflow-y:auto; border:1px solid var(--border); border-radius:9px; background:var(--bg); }
+.file-row { display:grid; grid-template-columns:22px 1fr auto auto; gap:10px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--border); font-size:13px; cursor:pointer; transition:background .12s; }
+.file-row:last-child { border-bottom:none; }
+.file-row:hover { background:var(--panel); }
+.file-row .fname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-row .fmeta { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.file-progress { display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--muted); }
+.fp-bar { flex:1; height:6px; border-radius:4px; background:var(--bg); overflow:hidden; border:1px solid var(--border); }
+.fp-fill { height:100%; width:0; background:var(--accent); transition:width .2s; }
+label.btn { cursor:pointer; }
+.rec-dot { width:8px; height:8px; border-radius:50%; background:#fff; animation:pulse 1s infinite; }
+@keyframes pulse { 50% { opacity:.3; } }
+
 /* ── Admin ── */
 #page-admin { overflow-y:auto; padding:24px; }
 .admin-wrap { max-width:760px; display:flex; flex-direction:column; gap:14px; }
@@ -529,7 +577,7 @@ body:not(.desk) .desk-only { display:none !important; }
 body.linked .empty-state { display:none; }
 body.linked #busy:not([hidden]) { display:flex !important; }
 body.linked #busy:not([hidden]) ~ #screen-wrap { display:none; }
-body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
+body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid, body:not(.linked) .needs-link { display:none !important; }
 
 /* ── Unrestricted ── */
 .unr-card { transition: border-color .25s, background .25s; }
@@ -728,6 +776,14 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
       Rules
     </button>
+    <button class="nav-btn" data-page="activity" id="nav-activity">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Activity
+    </button>
+    <button class="nav-btn" data-page="tools" id="nav-tools">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      PC tools
+    </button>
     <div style="flex:1"></div>
     <button class="nav-btn" data-page="admin" id="nav-admin" hidden>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -898,6 +954,67 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
     </div>
   </div>
 
+  <!-- Activity page -->
+  <div class="page" id="page-activity">
+    <div class="empty-state"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg><div class="es-title">His activity will show here</div><div class="es-sub" data-es></div><button class="btn btn-primary" data-goto-settings>Open Settings</button></div>
+    <div class="act-wrap needs-link">
+      <div class="rule-card usage-card">
+        <div class="usage-top">
+          <div><div class="usage-big" id="usage-used">0m</div><div class="rule-hint" id="usage-of">used today</div></div>
+          <div class="usage-btns"><button class="btn btn-ghost" data-addtime="15">+15 min</button><button class="btn btn-ghost" data-addtime="30">+30 min</button><button class="btn btn-ghost" data-addtime="60">+1 hour</button></div>
+        </div>
+        <div class="usage-bar"><div class="usage-fill" id="usage-fill"></div></div>
+      </div>
+      <div class="rule-card">
+        <div class="act-head">
+          <h3>History</h3>
+          <div class="act-nav">
+            <button class="btn btn-ghost" id="act-prev" aria-label="Earlier day">‹</button>
+            <span id="act-day">Today</span>
+            <button class="btn btn-ghost" id="act-next" aria-label="Later day">›</button>
+            <select id="act-filter"><option value="">Everything</option><option value="app">Apps</option><option value="site">Websites</option><option value="blocked">Blocked</option><option value="request">Requests and answers</option><option value="time">Screen time and power</option></select>
+          </div>
+        </div>
+        <div id="act-list" class="act-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PC tools page -->
+  <div class="page" id="page-tools">
+    <div class="empty-state"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg><div class="es-title">Tools for his PC will show here</div><div class="es-sub" data-es></div><button class="btn btn-primary" data-goto-settings>Open Settings</button></div>
+    <div class="tools-grid needs-link">
+      <div class="rule-card">
+        <h3>Send him a message</h3>
+        <div class="rule-hint">Pops up on his screen straight away.</div>
+        <textarea id="msg-text" rows="3" maxlength="500" placeholder="e.g. Dinner's ready, time to log off in 5 minutes"></textarea>
+        <button class="btn btn-primary" id="msg-send" style="align-self:flex-end">Send message</button>
+      </div>
+      <div class="rule-card">
+        <h3>Power</h3>
+        <div class="rule-hint">Restart and shut down give him a 10-second warning. Click twice to confirm.</div>
+        <div class="power-grid">
+          <button class="btn btn-secondary" data-power="lock">Lock</button>
+          <button class="btn btn-secondary" data-power="logoff">Sign out</button>
+          <button class="btn btn-warn" data-power="restart">Restart</button>
+          <button class="btn btn-bad" data-power="shutdown">Shut down</button>
+        </div>
+      </div>
+      <div class="rule-card" style="grid-column:1/-1">
+        <div class="act-head"><h3>Open apps</h3><button class="btn btn-ghost" id="apps-refresh">Refresh</button></div>
+        <div id="apps-list" class="plist"></div>
+      </div>
+      <div class="rule-card" style="grid-column:1/-1">
+        <div class="act-head"><h3>Files</h3>
+          <label class="btn btn-primary" for="file-send">Send a file to his PC<input type="file" id="file-send" multiple hidden></label></div>
+        <div class="rule-hint">Files you send go to his Downloads, in a folder called "From Guardian". Click a file below to download it.</div>
+        <div class="file-progress" id="file-progress" hidden><div class="fp-bar"><div class="fp-fill" id="fp-fill"></div></div><span id="fp-text"></span></div>
+        <div class="crumbs" id="crumbs"></div>
+        <div id="file-list" class="file-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Requests page -->
   <div class="page" id="page-requests">
     <div id="req-list" class="requests-grid"></div>
@@ -982,6 +1099,9 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
         </label>
         <div class="days-grid" id="days"></div>
         <div class="rule-hint" style="margin-top:10px">e.g. <code>16:00-20:00</code> or <code>07:30-08:30, 15:00-20:00</code>. Leave a day empty to keep it locked all day.</div>
+        <h3 style="margin-top:22px">Daily time limit</h3>
+        <div class="rule-hint">The most time he can use the PC each day, in hours (e.g. <code>2</code> or <code>1.5</code>). Leave empty for no limit. Works with or without the hours above.</div>
+        <div class="days-grid" id="limits"></div>
       </div>
       <div style="grid-column:1/-1; display:flex; gap:10px; justify-content:flex-end; padding-bottom:8px;">
         <button class="btn btn-secondary" id="rules-cancel">Cancel</button>
@@ -1042,7 +1162,7 @@ $('devid').value = store.get('guardian.id');
 // locked with your password, and (in the desktop app) a recovery copy is sealed by
 // Windows for your account, released only after an emailed code or a passkey.
 const enc = new TextEncoder(), dec = new TextDecoder();
-const b64 = a => btoa(String.fromCharCode(...new Uint8Array(a)));
+const b64 = a => { const u = new Uint8Array(a); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
 const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 const b64url = a => b64(a).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const unb64url = t => unb64(t.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((t.length + 3) % 4));
@@ -1245,8 +1365,10 @@ function goTo(name) {
   currentPage = name;
   if (name === 'view' && leaving !== 'view') startViewer();
   if (leaving === 'view' && name !== 'view') stopViewer();
+  if (name === 'activity') loadActivity();
+  if (name === 'tools') loadTools();
 
-  const titles = { admin: 'Admin', connect: 'Settings', view: 'Screen', requests: 'Requests', rules: 'Rules & restrictions' };
+  const titles = { activity: 'Activity', tools: 'PC tools', admin: 'Admin', connect: 'Settings', view: 'Screen', requests: 'Requests', rules: 'Rules & restrictions' };
   $('topbar-title').textContent = titles[name] || 'Guardian';
   renderTopbarActions(name);
 }
@@ -1279,7 +1401,11 @@ function scheduleReconnect() {
   retry = setTimeout(startViewer, 8000);
 }
 let linked = false;
+let everLinked = false;
 function setLinked(on) {
+  if (on && !linked && everLinked) notifyLocal('His PC is online', 'Guardian is connected to his PC again.');
+  if (!on && linked) notifyLocal('His PC went offline', "Guardian will reconnect when it's back.");
+  if (on) everLinked = true;
   linked = on;
   document.body.classList.toggle('linked', on);
   if (on) { setStatus('Live', 'live'); if (currentPage === 'view') startViewer(); }
@@ -1294,6 +1420,7 @@ function startViewer() {
 }
 function stopViewer() {
   clearTimeout(retry);
+  if (recorder) recorder.stop();
   if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
   if (control) { control = false; canvas.classList.remove('control'); $('control-banner').classList.remove('show'); }
   document.body.classList.remove('viewing');
@@ -1329,6 +1456,16 @@ function renderTopbarActions(page) {
     ctrlBtn.textContent = control ? 'Stop controlling' : 'Take control';
     ctrlBtn.onclick = () => setControl(!control);
     bar.appendChild(ctrlBtn);
+
+    const shotBtn = document.createElement('button');
+    shotBtn.className = 'btn btn-ghost'; shotBtn.textContent = 'Screenshot';
+    shotBtn.onclick = takeScreenshot;
+    bar.appendChild(shotBtn);
+    const recBtn = document.createElement('button');
+    recBtn.className = 'btn ' + (recorder ? 'btn-bad' : 'btn-ghost');
+    recBtn.innerHTML = recorder ? '<span class="rec-dot"></span> Stop recording' : 'Record';
+    recBtn.onclick = toggleRecording;
+    bar.appendChild(recBtn);
 
     const clipBtn = document.createElement('button');
     clipBtn.className = 'btn btn-ghost';
@@ -1469,6 +1606,13 @@ function startInbox(id, code) {
     if (m.type === 'parent_request') { if (!waitingParents.some(w => w.id === m.id)) waitingParents.push({ id:m.id, name:m.name }); renderParents(); parentAlert(m); }
     if (m.type === 'auth_pending') { setStatus('Waiting for approval', 'off'); renderEmpty('pending'); $('pending-card').hidden = false; }
     if (m.type === 'agent_left') setLinked(false);
+    if (m.type === 'activity') renderActivity(m);
+    if (m.type === 'usage') renderUsage(m.usage);
+    if (m.type === 'apps') renderApps(m.apps);
+    if (m.type === 'dir') renderDir(m.listing);
+    if (m.type === 'file_data') onFileData(m);
+    if (m.type === 'file_ack' || m.type === 'file_saved') onFileAck(m);
+    if (m.type === 'tool_done') onToolDone(m);
     if (m.type === 'auth_failed') {
       inbox.onclose = null; inbox.close(); setLinked(false);
       const why = { locked:'Too many wrong codes. Locked for 5 minutes', denied:'Another parent declined this app', removed:'This app was removed as a parent', update_app:'Update Guardian to connect' }[m.reason] || 'Wrong pairing code. Check it in Settings';
@@ -1577,6 +1721,8 @@ function notify(r) {
 // ── Rules page ────────────────────────────────────────────────
 const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
 const DAYNAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+$('limits').innerHTML = DAYS.map((d, i) => `
+  <div class="day-col"><div class="day-label">${DAYNAMES[i]}</div><input id="limit-${d}" placeholder="No limit" type="text" inputmode="decimal"></div>`).join('');
 $('days').innerHTML = DAYS.map((d,i) => `
   <div class="day-col">
     <div class="day-label">${DAYNAMES[i]}</div>
@@ -1597,6 +1743,7 @@ document.querySelectorAll('.nav-btn[data-page="rules"]').forEach(b => b.addEvent
   const sch = policy.schedule || { enabled:false, days:{} };
   $('schedon').checked = sch.enabled;
   DAYS.forEach(d => $('day-'+d).value = (sch.days[d]||[]).join(', '));
+  DAYS.forEach(d => { const m = (policy.daily_limits || {})[d]; $('limit-'+d).value = m ? +(m / 60).toFixed(2) : ''; });
 }));
 
 $('rules-cancel').onclick = () => {
@@ -1629,6 +1776,7 @@ $('rules-save').onclick = () => {
     allowed_apps: allowed, blocked_apps: blocked, ask_unknown: $('askunknown').checked,
     allowed_sites: aSites, blocked_sites: bSites, ask_unknown_sites: $('askunknownsites').checked,
     schedule: { enabled: $('schedon').checked, days },
+    daily_limits: Object.fromEntries(DAYS.map(d => [d, Math.round(parseFloat($('limit-'+d).value) * 60)]).filter(([, m]) => m > 0 && m <= 1440)),
     unrestricted: !!policy.unrestricted,
     screen_hidden: !!policy.screen_hidden,
   }});
@@ -1776,6 +1924,157 @@ function parentAlert(m) {
   try { if (document.hidden && Notification.permission === 'granted') { const n = new Notification('Guardian: new parent', { body:`${m.name} wants access. Open Settings to approve.` }); n.onclick = () => { window.guardianDesktop?.show(); goTo('connect'); }; } } catch {}
 }
 
+// ── Activity ──
+let actDay = '', actDays = [], actItems = [];
+const ICON = { app:'▶', closed:'■', site:'◎', blocked:'✕', request:'?', decision:'✓', time:'◷', power:'⏻', message:'✉', file:'⇅', screen:'▣' };
+function loadActivity() { if (linked) sendInbox({ type:'get_activity', day: actDay }); }
+function fmtMins(m) { m = Math.max(0, Math.round(m)); const h = Math.floor(m / 60), r = m % 60; return h ? `${h}h ${r}m` : `${r}m`; }
+function renderUsage(u) {
+  if (!u) return;
+  const total = u.limit_minutes != null ? u.limit_minutes + (u.bonus_minutes || 0) : null;
+  $('usage-used').textContent = fmtMins(u.used_minutes);
+  $('usage-of').textContent = total != null
+    ? `used today of ${fmtMins(total)}${u.bonus_minutes ? ` (includes ${fmtMins(u.bonus_minutes)} extra)` : ''} · ${fmtMins(total - u.used_minutes)} left`
+    : `used today · no daily limit set${u.bonus_minutes ? '' : ''}`;
+  const pct = total ? Math.min(100, u.used_minutes / total * 100) : 0;
+  $('usage-fill').style.width = (total ? pct : 0) + '%';
+  $('usage-fill').classList.toggle('over', pct >= 90);
+}
+function renderActivity(m) {
+  actDays = m.days || []; actItems = m.items || [];
+  renderUsage(m.usage);
+  const today = new Date().toISOString().slice(0, 10);
+  const d = m.day || today;
+  $('act-day').textContent = d === today || !m.day ? 'Today' : new Date(d + 'T12:00').toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
+  const idx = actDays.indexOf(m.day || actDays[0]);
+  $('act-prev').disabled = idx < 0 || idx >= actDays.length - 1;
+  $('act-next').disabled = !m.day || m.day === today || idx <= 0;
+  drawActivity();
+}
+function drawActivity() {
+  const f = $('act-filter').value;
+  const groups = { app:['app','closed'], site:['site'], blocked:['blocked'], request:['request','decision'], time:['time','power','message','file','screen'] };
+  const rows = actItems.filter(i => !f || groups[f].includes(i.kind));
+  $('act-list').innerHTML = rows.length ? rows.map(i => `
+    <div class="act-row"><span class="act-time">${new Date(i.t * 1000).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', hour12:false })}</span>
+      <span class="act-dot k-${esc(i.kind)}">${ICON[i.kind] || '•'}</span><span>${esc(i.text)}</span></div>`).join('')
+    : '<div class="act-empty">Nothing here yet.</div>';
+}
+$('act-filter').onchange = drawActivity;
+$('act-prev').onclick = () => { const i = actDays.indexOf(actDay || actDays[0]); if (actDays[i + 1]) { actDay = actDays[i + 1]; loadActivity(); } };
+$('act-next').onclick = () => { const i = actDays.indexOf(actDay); actDay = i > 0 ? actDays[i - 1] : ''; if (actDay === new Date().toISOString().slice(0, 10)) actDay = ''; loadActivity(); };
+document.querySelectorAll('[data-addtime]').forEach(b => b.onclick = () => { sendInbox({ type:'add_time', minutes: +b.dataset.addtime }); toast(`Added ${b.textContent.slice(1)} of screen time`); });
+setInterval(() => { if (currentPage === 'activity' && linked && !actDay) loadActivity(); }, 30000);
+
+// ── PC tools ──
+function loadTools() { if (!linked) return; sendInbox({ type:'list_apps' }); if (!dirPath && !$('file-list').innerHTML) sendInbox({ type:'list_dir', path:'' }); }
+$('msg-send').onclick = () => {
+  const t = $('msg-text').value.trim(); if (!t) return toast('Type a message first');
+  sendInbox({ type:'message', text: t }); $('msg-text').value = ''; toast('Message sent');
+};
+document.querySelectorAll('[data-power]').forEach(b => b.onclick = () => {
+  if (!b.classList.contains('confirm')) {
+    document.querySelectorAll('[data-power]').forEach(x => x.classList.remove('confirm'));
+    b.classList.add('confirm'); b.dataset.label = b.dataset.label || b.textContent; b.textContent = 'Click again';
+    setTimeout(() => { b.classList.remove('confirm'); b.textContent = b.dataset.label; }, 3500); return;
+  }
+  b.classList.remove('confirm'); b.textContent = b.dataset.label;
+  sendInbox({ type:'power', action: b.dataset.power });
+  toast({ lock:'Locking his PC', logoff:'Signing him out', restart:'Restarting his PC in 10 seconds', shutdown:'Shutting down his PC in 10 seconds' }[b.dataset.power]);
+});
+const fmtSize = n => n == null ? '' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB';
+function renderApps(list) {
+  $('apps-list').innerHTML = list.length ? list.map(a => `
+    <div class="prow app-row"><div class="pav">${esc((a.name || '?')[0].toUpperCase())}</div>
+      <div class="pinfo"><div class="pname">${esc(a.name)}</div><div class="psub">${fmtSize(a.memory)} memory · ${esc(a.home)}</div></div>
+      <button class="btn btn-ghost" data-close-app="${esc(a.home)}">Close</button>
+      <button class="btn btn-bad" data-block-app="${esc(a.home)}">Block</button></div>`).join('')
+    : '<div class="act-empty">None of his apps are open.</div>';
+  document.querySelectorAll('[data-close-app]').forEach(b => b.onclick = () => { sendInbox({ type:'close_app', home: b.dataset.closeApp }); b.textContent = 'Closing…'; setTimeout(() => sendInbox({ type:'list_apps' }), 1500); });
+  document.querySelectorAll('[data-block-app]').forEach(b => b.onclick = () => {
+    const h = b.dataset.blockApp;
+    const p = { ...policy, blocked_apps: [...new Set([...(policy.blocked_apps || []), h])], allowed_apps: (policy.allowed_apps || []).filter(a => a !== h) };
+    sendInbox({ type:'set_policy', policy: p }); policy = p; toast('Blocked. It closes now and stays blocked');
+    setTimeout(() => sendInbox({ type:'list_apps' }), 1800);
+  });
+}
+$('apps-refresh').onclick = () => sendInbox({ type:'list_apps' });
+function onToolDone(m) { if (m.what === 'close_app' && !m.ok) toast("Couldn't close that app"); }
+
+// Files: browse and download from his PC
+let dirPath = '';
+function renderDir(l) {
+  dirPath = l.path || '';
+  const parts = [];
+  if (dirPath) {
+    const segs = dirPath.replace(/[\\/]+$/, '').split(/[\\/]/);
+    let acc = '';
+    segs.forEach((sg, i) => { acc += (i ? '\\' : '') + sg; parts.push([sg || '\\', i === 0 && /:$/.test(sg) ? acc + '\\' : acc]); });
+  }
+  $('crumbs').innerHTML = `<button data-dir="">His PC</button>` + parts.map(([n, p]) => `<span>›</span><button data-dir="${esc(p)}">${esc(n)}</button>`).join('');
+  $('file-list').innerHTML = l.error ? `<div class="act-empty">Can't open this folder: ${esc(l.error)}</div>` : (l.entries || []).map(e => `
+    <div class="file-row" data-${e.dir ? 'dir' : 'file'}="${esc(e.path)}" data-size="${e.size || 0}">
+      <span>${e.dir ? '📁' : '📄'}</span><span class="fname">${esc(e.name)}</span>
+      <span class="fmeta">${e.dir ? '' : fmtSize(e.size)}</span>
+      <span class="fmeta">${e.mtime ? new Date(e.mtime * 1000).toLocaleDateString() : ''}</span></div>`).join('') || '<div class="act-empty">This folder is empty.</div>';
+  document.querySelectorAll('#crumbs [data-dir], #file-list [data-dir]').forEach(el => el.onclick = () => sendInbox({ type:'list_dir', path: el.dataset.dir }));
+  document.querySelectorAll('#file-list [data-file]').forEach(el => el.onclick = () => downloadFile(el.dataset.file, +el.dataset.size));
+}
+const downloads = {};
+function showProgress(text, frac) { $('file-progress').hidden = frac == null; $('fp-fill').style.width = ((frac || 0) * 100) + '%'; $('fp-text').textContent = text || ''; }
+function downloadFile(path, size) {
+  if (size > 1073741824) return toast('Files over 1 GB can\'t be downloaded');
+  const id = Math.random().toString(36).slice(2);
+  downloads[id] = { parts: [], got: 0 };
+  sendInbox({ type:'get_file', id, path }); showProgress('Starting download…', 0);
+}
+function onFileData(m) {
+  const d = downloads[m.id]; if (!d) return;
+  if (m.error) { delete downloads[m.id]; showProgress(); return toast(m.error); }
+  d.parts.push(unb64(m.data)); d.got += d.parts.at(-1).length; d.name = m.name;
+  showProgress(`Downloading ${m.name} · ${fmtSize(d.got)} of ${fmtSize(m.size)}`, m.size ? d.got / m.size : 1);
+  if (m.done) {
+    const url = URL.createObjectURL(new Blob(d.parts));
+    const a = document.createElement('a'); a.href = url; a.download = m.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    delete downloads[m.id]; showProgress(); toast(`Downloaded ${m.name}`);
+  }
+}
+// Files: send to his PC (pieces of 256 KB, one at a time)
+const uploads = {};
+$('file-send').onchange = async e => {
+  for (const file of e.target.files) await sendFile(file);
+  e.target.value = '';
+};
+function sendFile(file) {
+  return new Promise(done => {
+    const id = Math.random().toString(36).slice(2), CH = 256 * 1024;
+    uploads[id] = { file, offset: 0, done };
+    const next = async () => {
+      const u = uploads[id]; if (!u) return;
+      const end = Math.min(u.offset + CH, file.size);
+      const data = b64(await file.slice(u.offset, end).arrayBuffer());
+      sendInbox({ type:'put_file', id, name: file.name, offset: u.offset, data, last: end >= file.size });
+      showProgress(`Sending ${file.name} · ${fmtSize(end)} of ${fmtSize(file.size)}`, file.size ? end / file.size : 1);
+      u.offset = end;
+    };
+    uploads[id].next = next; next();
+  });
+}
+function onFileAck(m) {
+  const u = uploads[m.id]; if (!u) return;
+  if (m.type === 'file_ack') return u.next();
+  delete uploads[m.id]; showProgress(); u.done();
+  toast(m.error ? `Couldn't send ${u.file.name}: ${m.error}` : `${u.file.name} is in his Downloads, in "From Guardian"`, 5000);
+  if (dirPath) sendInbox({ type:'list_dir', path: dirPath });
+}
+
+// Desktop notifications for status changes
+function notifyLocal(title, body) {
+  toast(title);
+  try { if (document.hidden && Notification.permission === 'granted') new Notification('Guardian: ' + title, { body }); } catch {}
+}
+
 // ── Unrestricted mode ─────────────────────────────────────────
 function toggleScreenHidden() {
   const p = { ...policy, screen_hidden: !policy.screen_hidden };
@@ -1812,6 +2111,31 @@ $('unr-btn').onclick = () => {
   policy = p; renderUnrestricted();
   toast(p.unrestricted ? 'All restrictions removed' : 'Restrictions back on');
 };
+
+// ── Screenshot and recording (saved on this PC) ──
+const stamp = () => new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/:/g, '-');
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+function takeScreenshot() {
+  if (!canvas.width) return toast('Nothing to capture yet');
+  canvas.toBlob(b => { saveBlob(b, `Guardian screenshot ${stamp()}.png`); toast('Screenshot saved to your Downloads'); }, 'image/png');
+}
+let recorder = null, recChunks = [];
+function toggleRecording() {
+  if (recorder) { recorder.stop(); return; }
+  try {
+    const stream = canvas.captureStream(10);
+    const type = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+    recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 2_500_000 });
+    recChunks = [];
+    recorder.ondataavailable = e => e.data.size && recChunks.push(e.data);
+    recorder.onstop = () => { saveBlob(new Blob(recChunks, { type: 'video/webm' }), `Guardian recording ${stamp()}.webm`); recorder = null; renderTopbarActions(currentPage); toast('Recording saved to your Downloads'); };
+    recorder.start(1000); renderTopbarActions('view'); toast('Recording his screen');
+  } catch { recorder = null; toast("Recording isn't available here"); }
+}
 
 // ── Send clipboard ────────────────────────────────────────────
 async function sendClipboard() {
