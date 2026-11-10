@@ -26,7 +26,7 @@ const demoJs = `
 (() => {
   const now = Date.now();
   document.body.classList.add('desk');
-  store.set('guardian.id', '482913577'); store.set('guardian.name', 'Leo');
+  store.set('guardian.id', '482913577'); store.set('guardian.name', 'Parent');
   store.set('guardian.account_email', 'parent@example.com');
   vault.code = 'demo';
   // No networking in the preview.
@@ -40,7 +40,7 @@ const demoJs = `
   send = () => {};
 
   policy = {
-    allowed_apps: ['c:/program files (x86)/steam', 'c:/users/leo/appdata/roaming/.minecraft', 'c:/users/leo/appdata/local/discord'],
+    allowed_apps: ['c:/program files (x86)/steam', 'c:/users/child/appdata/roaming/.minecraft', 'c:/users/child/appdata/local/discord'],
     blocked_apps: ['c:/program files/epic games/fortnite', 'c:/program files/tor browser'],
     allowed_sites: ['youtube.com', 'bbc.co.uk', 'wikipedia.org', 'coolmathgames.com'],
     blocked_sites: ['tiktok.com', 'roblox.com'],
@@ -48,12 +48,12 @@ const demoJs = `
     schedule: { enabled: true, days: { mon: ['16:00-20:00'], tue: ['16:00-20:00'], wed: ['16:00-20:00'], thu: ['16:00-20:00'], fri: ['16:00-21:30'], sat: ['09:00-21:30'], sun: ['09:00-20:00'] } },
   };
   queue = [
-    { app: 'c:/users/leo/appdata/local/programs/roblox', kind: 'app', name: 'Roblox', path: 'C:\\\\Users\\\\Leo\\\\AppData\\\\Local\\\\Programs\\\\Roblox', requested_at: now - 40000 },
+    { app: 'c:/users/child/appdata/local/programs/roblox', kind: 'app', name: 'Roblox', path: 'C:\\\\Users\\\\Child\\\\AppData\\\\Local\\\\Programs\\\\Roblox', requested_at: now - 40000 },
     { app: 'site:twitch.tv', kind: 'site', name: 'twitch.tv', path: 'www.twitch.tv', requested_at: now - 300000 },
     { app: 'c:/program files/spotify', kind: 'app', name: 'Spotify', path: 'C:\\\\Program Files\\\\Spotify', requested_at: now - 1500000 },
   ];
-  parentList = [{ id: myId(), name: 'You', added: now / 1000 - 86400 * 9 }, { id: 'mum', name: 'Mum', added: now / 1000 - 86400 * 7 }];
-  waitingParents = [{ id: 'gran', name: 'Gran' }];
+  parentList = [{ id: myId(), name: 'Parent', added: now / 1000 - 86400 * 9 }, { id: 'p2', name: 'Parent 2', added: now / 1000 - 86400 * 7 }];
+  waitingParents = [{ id: 'p3', name: 'Parent 3' }];
 
   // A pretend desktop on his screen.
   function drawDesktop() {
@@ -82,7 +82,7 @@ const demoJs = `
   drawDesktop();
   agentInfo = { admin: false, version: '1.0.30' };
   renderQueue(); renderParents(); renderUnrestricted(); renderEmpty(); renderAccount();
-  $('pname').value = 'Leo'; $('devid').value = '482913577'; $('code').value = 'demo-code-12';
+  $('pname').value = 'Parent'; $('devid').value = '482913577'; $('code').value = 'demo-code-12';
   goTo('requests');
   setTimeout(() => {
     const sel = document.getElementById('monitors');
