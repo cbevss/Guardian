@@ -458,6 +458,17 @@ input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; c
 }
 .toggle-row input { flex-shrink: 0; }
 
+/* ── Title bar ── */
+#titlebar { position: fixed; top: 0; left: 0; right: 0; height: 34px; z-index: 1000; display: flex; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); -webkit-app-region: drag; user-select: none; }
+.tb-title { display: flex; align-items: center; gap: 8px; padding-left: 12px; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .02em; flex: 1; }
+.tb-btns { display: flex; height: 100%; -webkit-app-region: no-drag; }
+.tb-btn { width: 46px; height: 100%; border: none; background: none; color: var(--muted); display: grid; place-items: center; cursor: default; transition: background .15s, color .15s; }
+.tb-btn:hover { background: var(--border2); color: var(--fg); }
+.tb-close:hover { background: #e81123; color: #fff; }
+body.framed { padding-top: 34px; }
+body.framed #lock { top: 34px; }
+body.framed .modal-backdrop { top: 34px; }
+
 /* ── Lock screen ── */
 #lock { position:fixed; inset:0; z-index:500; background:radial-gradient(ellipse at 50% 30%, #141a2c 0%, var(--bg) 70%); display:flex; align-items:center; justify-content:center; padding:16px; transition: opacity .35s, transform .35s; }
 #lock.gone { opacity:0; transform: scale(1.03); pointer-events:none; }
@@ -651,6 +662,19 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
   sec: async name => name === 'passkeys' ? [{ id: 'p1', name: 'Windows Hello on this PC', created: Date.now() - 86400000 * 3 }] : { ok: false } };</script>
 </head>
 <body>
+
+<!-- ── Title bar (desktop app only) ── -->
+<div id="titlebar" hidden>
+  <div class="tb-title">
+    <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M16 2 28 7v9c0 6.5-5.5 11.5-12 14C9.5 27.5 4 22.5 4 16V7z" fill="#4f7cff"/><rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="#fff"/><path d="M13 16v-3c0-2.2 6-2.2 6 0v3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+    Guardian
+  </div>
+  <div class="tb-btns">
+    <button class="tb-btn" id="tb-min" aria-label="Minimise"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor"/></svg></button>
+    <button class="tb-btn" id="tb-max" aria-label="Maximise"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg></button>
+    <button class="tb-btn tb-close" id="tb-close" aria-label="Close"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0 0 10" stroke="currentColor" stroke-width="1.1"/></svg></button>
+  </div>
+</div>
 
 <!-- ── Lock screen ── -->
 <div id="lock">
@@ -1604,6 +1628,17 @@ $('rules-save').onclick = () => {
   shownPolicy = { allowed, blocked, aSites, bSites };
   toast('Rules saved ✓');
 };
+
+// ── Custom title bar ──
+if (window.guardianDesktop?.win) {
+  const w = window.guardianDesktop.win;
+  document.body.classList.add('framed'); $('titlebar').hidden = false;
+  $('tb-min').onclick = w.min; $('tb-max').onclick = w.max; $('tb-close').onclick = w.close;
+  const maxIcon = m => $('tb-max').innerHTML = m
+    ? '<svg width="10" height="10" viewBox="0 0 10 10"><rect x="2.5" y=".5" width="7" height="7" fill="none" stroke="currentColor"/><path d="M.5 2.5v7h7" fill="none" stroke="currentColor"/></svg>'
+    : '<svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg>';
+  w.isMax().then(maxIcon); w.onMax(maxIcon);
+}
 
 // ── Account settings ──
 if (desk) document.body.classList.add('desk');

@@ -10,4 +10,12 @@ contextBridge.exposeInMainWorld('guardianDesktop', {
   serverBase: () => ipcRenderer.invoke('guardian:server'),
   // Lock screen, reset emails and passkeys:
   sec: (name, ...args) => ipcRenderer.invoke('sec:' + name, ...args),
+  // Custom title bar buttons:
+  win: {
+    min: () => ipcRenderer.send('win:min'),
+    max: () => ipcRenderer.send('win:max'),
+    close: () => ipcRenderer.send('win:close'),
+    isMax: () => ipcRenderer.invoke('win:isMax'),
+    onMax: cb => ipcRenderer.on('guardian:maximized', (_e, v) => cb(v)),
+  },
 });

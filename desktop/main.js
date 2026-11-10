@@ -34,8 +34,29 @@ function portInUse() {
   });
 }
 
+// Is the page on port 8080 this version's? (Old "Guardian Parent" installs run their own.)
+function servingOurPage() {
+  return new Promise(resolve => {
+    require('http').get({ host: '127.0.0.1', port: PORT, path: '/', timeout: 2000 }, r => {
+      let body = ''; r.on('data', d => { body += d; if (body.length > 200000) r.destroy(); });
+      r.on('end', () => resolve(body.includes('id="lock"')));
+    }).on('error', () => resolve(false)).on('timeout', function () { this.destroy(); resolve(false); });
+  });
+}
+function stopOldRelay() {
+  return new Promise(resolve => {
+    if (process.platform !== 'win32') return resolve();
+    require('child_process').execFile('taskkill', ['/IM', 'guardian-relay.exe', '/F'], { windowsHide: true }, () => resolve());
+  });
+}
+
 async function startRelay() {
-  if (await portInUse()) return; // already running (e.g. from an older install)
+  if (await portInUse()) {
+    if (relay || await servingOurPage()) return;
+    // An old Guardian is holding the port: close it and run ours.
+    await stopOldRelay();
+    for (let i = 0; i < 20 && await portInUse(); i++) await new Promise(r => setTimeout(r, 250));
+  }
   const exe = app.isPackaged ? res('guardian-relay.exe') : res('target', 'release', 'guardian-relay.exe');
   if (!fs.existsSync(exe)) return;
   relay = spawn(exe, [], {
@@ -64,11 +85,14 @@ function createWindow() {
   win = new BrowserWindow({
     x: s.x, y: s.y, width: s.width, height: s.height, minWidth: 900, minHeight: 600,
     title: 'Guardian', icon, backgroundColor: '#0b0d12', autoHideMenuBar: true, show: false,
+    frame: false, // Guardian draws its own title bar to match the app
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false },
   });
   Menu.setApplicationMenu(null);
   if (s.maximized) win.maximize();
   win.once('ready-to-show', () => { if (!startHidden) win.show(); });
+  const sendMax = () => win.webContents.send('guardian:maximized', win.isMaximized());
+  win.on('maximize', sendMax); win.on('unmaximize', sendMax);
   win.on('close', e => {
     saveState();
     if (!quitting) {
@@ -108,6 +132,10 @@ function createTray() {
 }
 
 ipcMain.on('guardian:show', showWindow);
+ipcMain.on('win:min', () => win && win.minimize());
+ipcMain.on('win:max', () => win && (win.isMaximized() ? win.unmaximize() : win.maximize()));
+ipcMain.on('win:close', () => win && win.close());
+ipcMain.handle('win:isMax', () => !!(win && win.isMaximized()));
 ipcMain.on('guardian:request', () => {
   if (!win) return;
   if (!win.isVisible() || win.isMinimized()) { win.showInactive(); }
