@@ -186,6 +186,31 @@ const live = document.getElementById('live');
 function fitPreview() { live.style.setProperty('--k', live.clientWidth / 1280); }
 new ResizeObserver(fitPreview).observe(live); fitPreview();
 
+// The preview tilts toward the mouse, even while the mouse is over the app inside it.
+if (!reduce && matchMedia('(hover: hover)').matches) {
+  const tilt = (cx, cy) => {
+    const r = shot.getBoundingClientRect(), x = (cx - r.left) / r.width, y = (cy - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) { shot.style.setProperty('--ry', '0deg'); onScroll(); return; }
+    shot.style.setProperty('--ry', ((x - .5) * 8) + 'deg'); shot.style.setProperty('--rx', ((.5 - y) * 6) + 'deg');
+    shot.style.setProperty('--gx', x * 100 + '%'); shot.style.setProperty('--gy', y * 100 + '%');
+  };
+  shot.addEventListener('pointermove', e => tilt(e.clientX, e.clientY));
+  shot.addEventListener('pointerleave', () => { shot.style.setProperty('--ry', '0deg'); onScroll(); });
+  const frame = live.querySelector('iframe');
+  const hook = () => {
+    try {
+      const doc = frame.contentDocument;
+      doc.addEventListener('pointermove', e => {
+        const fr = frame.getBoundingClientRect(), k = fr.width / 1280;   // iframe is scaled down
+        px = fr.left + e.clientX * k; py = fr.top + e.clientY * k; tilt(px, py);
+      }, { passive: true });
+      doc.addEventListener('pointerleave', () => { shot.style.setProperty('--ry', '0deg'); onScroll(); });
+    } catch {}
+  };
+  frame.addEventListener('load', hook); if (frame.contentDocument?.readyState === 'complete') hook();
+  addEventListener('scroll', () => requestAnimationFrame(() => tilt(px, py)), { passive: true });
+}
+
 // Show the newest version number next to the download button.
 fetch('https://api.github.com/repos/cbevss/Guardian/releases/latest').then(r => r.ok ? r.json() : null)
   .then(r => { if (r?.tag_name) document.getElementById('ver').textContent = 'Version ' + r.tag_name.replace(/^v/, ''); })

@@ -83,6 +83,7 @@ a { color: inherit; }
 .live { position: relative; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #0b0d12; }
 .live iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 800px; border: 0; transform: scale(var(--k, .75)); transform-origin: 0 0; }
 .shot .still { display: none; }
+.shot::after { content: ""; position: absolute; inset: 0; background: radial-gradient(500px circle at var(--gx, 50%) var(--gy, 0%), rgba(79,124,255,.14), transparent 45%); pointer-events: none; z-index: 2; }
 .try { margin-top: 18px; font: 500 12px var(--mono); color: var(--muted); letter-spacing: .04em; }
 .try::before { content: "↓ "; color: var(--accent); }
 @media (max-width: 760px) { .live { display: none; } .shot .still { display: block; } .try { display: none; } }
