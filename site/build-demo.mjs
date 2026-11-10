@@ -16,6 +16,10 @@ const demoCss = `
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b5bd9, #24305a); border-radius: 10px; border: 3px solid var(--bg); }
   ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #6b8cff, #3b5bd9); }
+  /* Look-only: just the side tabs can be clicked */
+  body * { cursor: default !important; }
+  .nav-btn[data-page], .nav-btn[data-page] * { cursor: pointer !important; }
+  input, textarea, select { caret-color: transparent; }
   .demo-note { position: fixed; right: 14px; bottom: 12px; z-index: 300; font: 500 11px Inter, system-ui, sans-serif; color: #8189a6; background: rgba(18,21,29,.9); border: 1px solid #252c3f; padding: 5px 10px; border-radius: 20px; pointer-events: none; }
 </style>`;
 
@@ -96,6 +100,17 @@ const demoJs = `
   // Pre-fill the Rules page each time it opens.
   document.getElementById('nav-rules').click(); goTo('requests');
   document.body.insertAdjacentHTML('beforeend', '<div class="demo-note">Preview with example data</div>');
+
+  // Look-only: block every click, typing and change except switching tabs. Scrolling still works.
+  document.querySelectorAll('input, textarea, select').forEach(el => { el.readOnly = true; el.tabIndex = -1; });
+  const allowed = e => !!e.target.closest?.('.nav-btn[data-page]');
+  ['click', 'mousedown', 'pointerdown', 'dblclick', 'contextmenu', 'change', 'input', 'submit', 'toggle'].forEach(t =>
+    document.addEventListener(t, e => { if (!allowed(e)) { e.preventDefault(); e.stopImmediatePropagation(); } }, true));
+  document.addEventListener('keydown', e => {
+    const scrollKeys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '];
+    if (!scrollKeys.includes(e.key) || e.target.matches?.('input, textarea, select')) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+  document.addEventListener('focusin', e => { if (!allowed(e)) e.target.blur?.(); }, true);
 })();
 </script>`;
 

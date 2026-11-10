@@ -1201,7 +1201,7 @@ function goTo(name) {
   const old = pages[currentPage], next = pages[name];
   if (!next) return;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === name));
-  if (old) { old.classList.remove('shown'); setTimeout(() => { old.classList.remove('active'); }, 200); }
+  if (old && old !== next) { old.classList.remove('shown'); setTimeout(() => { if (pages[currentPage] !== old) old.classList.remove('active'); }, 200); }
   next.classList.add('active');
   requestAnimationFrame(() => next.classList.add('shown'));
   const leaving = currentPage;
