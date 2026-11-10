@@ -10,7 +10,6 @@ let html = readFileSync(join(here, '..', 'relay', 'web', 'index.html'), 'utf8');
 const demoCss = `
 <style id="demo">
   #lock { display: none !important; }
-  html, body { overscroll-behavior: contain; }
   /* same scrollbar as the website */
   * { scrollbar-width: thin; scrollbar-color: #2f3a5c var(--bg); }
   ::-webkit-scrollbar { width: 11px; height: 11px; }
