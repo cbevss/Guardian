@@ -9,6 +9,13 @@ contextBridge.exposeInMainWorld('guardianDesktop', {
   version: () => ipcRenderer.invoke('guardian:version'),
   appFolder: () => ipcRenderer.invoke('guardian:appFolder'),
   openAppFolder: () => ipcRenderer.send('guardian:openAppFolder'),
+  updates: {
+    get: () => ipcRenderer.invoke('update:get'),
+    setAuto: on => ipcRenderer.invoke('update:setAuto', on),
+    check: () => ipcRenderer.invoke('update:check'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onState: cb => ipcRenderer.on('update:state', (_e, s) => cb(s)),
+  },
   serverBase: () => ipcRenderer.invoke('guardian:server'),
   // Lock screen, reset emails and passkeys:
   sec: (name, ...args) => ipcRenderer.invoke('sec:' + name, ...args),

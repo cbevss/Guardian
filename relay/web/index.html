@@ -865,6 +865,17 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid, body:not(.linked)
       </details>
     </div>
 
+    <div class="connect-card desk-only" id="updates-card">
+      <h2 style="font-size:17px">Updates</h2>
+      <div class="rule-hint" style="margin-top:-8px">You have version <b style="color:var(--fg)" id="upd-current"></b>.</div>
+      <label class="toggle-row"><input type="checkbox" id="upd-auto"> Install updates automatically (when Guardian starts)</label>
+      <div class="smtp-state" id="upd-status">Checking…</div>
+      <div class="connect-row">
+        <button class="btn btn-ghost" id="upd-check" style="flex:1;justify-content:center">Check for updates</button>
+        <button class="btn btn-primary" id="upd-install" style="flex:1;justify-content:center" hidden>Restart and update</button>
+      </div>
+    </div>
+
     <div class="connect-card desk-only" id="appfolder-card">
       <h2 style="font-size:17px">App folder</h2>
       <div class="rule-hint" style="margin-top:-8px">Where Guardian is installed on this PC. Add this folder to your antivirus exclusions if it ever blocks Guardian.</div>
@@ -1804,6 +1815,33 @@ if (window.guardianDesktop?.win) {
     ? '<svg width="10" height="10" viewBox="0 0 10 10"><rect x="2.5" y=".5" width="7" height="7" fill="none" stroke="currentColor"/><path d="M.5 2.5v7h7" fill="none" stroke="currentColor"/></svg>'
     : '<svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="currentColor"/></svg>';
   w.isMax().then(maxIcon); w.onMax(maxIcon);
+}
+
+// ── Updates ──
+if (window.guardianDesktop?.updates) {
+  const U = window.guardianDesktop.updates;
+  const show = st => {
+    $('upd-current').textContent = st.current ? 'v' + st.current : $('upd-current').textContent;
+    if (st.autoUpdate != null) $('upd-auto').checked = st.autoUpdate;
+    const auto = $('upd-auto').checked;
+    const text = {
+      idle: 'Guardian checks for updates every 30 minutes.',
+      checking: 'Checking for updates…',
+      latest: "You're on the newest version.",
+      available: auto ? `Version ${st.version} found. Downloading…` : `Version ${st.version} is available.`,
+      downloading: `Downloading the update… ${st.percent || 0}%`,
+      ready: auto ? `Version ${st.version} is ready. It installs the next time Guardian starts.` : `Version ${st.version} is ready to install.`,
+      error: "Couldn't check for updates. Check the internet connection.",
+    }[st.status] || '';
+    $('upd-status').textContent = st.packaged === false ? 'Updates only work in the installed app.' : text;
+    $('upd-status').className = 'smtp-state' + (st.status === 'latest' ? ' ok' : '');
+    $('upd-install').hidden = !(st.status === 'ready' || (st.status === 'available' && !auto));
+    $('upd-install').textContent = st.status === 'ready' ? 'Restart and update' : 'Download and install';
+  };
+  U.get().then(show); U.onState(st => show(st));
+  $('upd-auto').onchange = async () => { await U.setAuto($('upd-auto').checked); toast($('upd-auto').checked ? 'Updates will install automatically' : "Updates won't install until you choose to"); U.get().then(show); };
+  $('upd-check').onclick = () => U.check();
+  $('upd-install').onclick = () => { $('upd-install').disabled = true; $('upd-install').textContent = 'Updating…'; U.install(); };
 }
 
 // ── App folder ──

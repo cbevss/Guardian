@@ -130,7 +130,7 @@ const demoJs = `
 </script>`;
 
 // Stand-in for the desktop app, set before the app's own script reads it.
-const headJs = `<script>window.guardianDesktop = { request() {}, show() {}, version: async () => '1.0.30', serverBase: async () => '', appFolder: async () => 'C:\\\\Users\\\\Parent\\\\AppData\\\\Local\\\\Programs\\\\Guardian', openAppFolder() {},
+const headJs = `<script>window.guardianDesktop = { request() {}, show() {}, version: async () => '1.0.30', serverBase: async () => '', updates: { get: async () => ({ status: 'latest', current: '1.0.30', autoUpdate: true, packaged: true }), setAuto: async () => true, check() {}, install() {}, onState() {} }, appFolder: async () => 'C:\\\\Users\\\\Parent\\\\AppData\\\\Local\\\\Programs\\\\Guardian', openAppFolder() {},
   sec: async name => name === 'passkeys' ? [{ id: 'p1', name: 'Windows Hello on this PC', created: Date.now() - 86400000 * 3 }] : { ok: false } };</script>`;
 html = html.replace('</head>', demoCss + '\n' + headJs + '\n</head>');
 html = html.replace(/<\/body>\s*<\/html>\s*$/, demoJs + '\n</body>\n</html>\n');

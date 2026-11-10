@@ -173,24 +173,87 @@ handle('sec:verifyPasskey', a => security().verifyPasskey(a));
 handle('sec:wipe', () => security().wipe());
 
 // ---------- auto-update ----------
+// Settings > Updates: "Install updates automatically" (on by default).
+const prefsFile = () => path.join(app.getPath('userData'), 'prefs.json');
+function prefs() { try { return { autoUpdate: true, ...JSON.parse(fs.readFileSync(prefsFile(), 'utf8')) }; } catch { return { autoUpdate: true }; } }
+function savePrefs(p) { try { fs.writeFileSync(prefsFile(), JSON.stringify({ ...prefs(), ...p })); } catch {} }
+
+let updateState = { status: 'idle', version: null, percent: 0 };
+function setUpdateState(s) {
+  updateState = { ...updateState, ...s };
+  if (win && !win.isDestroyed()) win.webContents.send('update:state', updateState);
+}
+
+// Shown while Guardian updates itself on launch.
+function splash(text) {
+  const w = new BrowserWindow({ width: 360, height: 190, frame: false, resizable: false, show: false, backgroundColor: '#0b0d12', icon, skipTaskbar: false, title: 'Guardian' });
+  const html = `<html><body style="margin:0;background:#0b0d12;color:#e4e8f4;font:14px Segoe UI,system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:14px;-webkit-app-region:drag">
+    <svg width="44" height="44" viewBox="0 0 32 32"><path d="M16 2 28 7v9c0 6.5-5.5 11.5-12 14C9.5 27.5 4 22.5 4 16V7z" fill="#4f7cff"/><rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="#fff"/><path d="M13 16v-3c0-2.4 6-2.4 6 0v3" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+    <div id="t">${text}</div><div style="width:220px;height:5px;border-radius:4px;background:#1e2333;overflow:hidden"><div id="b" style="height:100%;width:0;background:#4f7cff;transition:width .2s"></div></div></body></html>`;
+  w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+  w.once('ready-to-show', () => w.show());
+  return { win: w, set: (t, pct) => w.webContents.executeJavaScript(`document.getElementById('t').textContent=${JSON.stringify(t)};document.getElementById('b').style.width='${pct || 0}%'`).catch(() => {}) };
+}
+
+/** On launch: if an update is out, install it before opening (when auto-update is on). Returns true if installing. */
+async function updateOnLaunch() {
+  if (!app.isPackaged || !prefs().autoUpdate) return false;
+  autoUpdater.autoDownload = false;
+  let info = null;
+  try { info = await Promise.race([autoUpdater.checkForUpdates().then(r => r && r.isUpdateAvailable !== false ? r.updateInfo : null), new Promise(r => setTimeout(() => r(null), 8000))]); } catch { return false; }
+  if (!info || info.version === app.getVersion()) return false;
+  const sp = startHidden ? null : splash(`Updating Guardian to ${info.version}…`);
+  const onProgress = p => sp && sp.set(`Updating Guardian to ${info.version}…`, Math.round(p.percent));
+  autoUpdater.on('download-progress', onProgress);
+  try {
+    await autoUpdater.downloadUpdate();
+    if (sp) await sp.set('Restarting…', 100);
+    quitting = true;
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 400);
+    return true;
+  } catch {
+    autoUpdater.off('download-progress', onProgress);
+    if (sp) sp.win.close();
+    return false;
+  }
+}
+
 function setupUpdates() {
   if (!app.isPackaged) return;
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('update-downloaded', () => {
+  autoUpdater.autoInstallOnAppQuit = prefs().autoUpdate;
+  autoUpdater.on('update-available', i => {
+    setUpdateState({ status: 'available', version: i.version });
+    if (prefs().autoUpdate) autoUpdater.downloadUpdate().catch(() => setUpdateState({ status: 'error' }));
+  });
+  autoUpdater.on('update-not-available', () => setUpdateState({ status: 'latest' }));
+  autoUpdater.on('download-progress', p => setUpdateState({ status: 'downloading', percent: Math.round(p.percent) }));
+  autoUpdater.on('error', () => setUpdateState({ status: 'error' }));
+  autoUpdater.on('update-downloaded', i => {
     updateReady = true;
-    // Nobody looking: install straight away, silently, and reopen hidden.
+    setUpdateState({ status: 'ready', version: i.version });
+    if (!prefs().autoUpdate) return; // they'll press "Restart and update"
+    // Nobody looking: install straight away, silently, and reopen hidden. Otherwise it installs next launch.
     if (!win || !win.isVisible()) { quitting = true; autoUpdater.quitAndInstall(true, true); return; }
-    new Notification({ title: 'Guardian update ready', body: 'It installs next time Guardian closes, or when the window is hidden.', icon }).show();
+    new Notification({ title: 'Guardian update ready', body: 'It installs the next time Guardian starts.', icon }).show();
   });
   const check = () => autoUpdater.checkForUpdates().catch(() => {});
   check();
   setInterval(check, 30 * 60 * 1000);
 }
 
-// ---------- start ----------
+ipcMain.handle('update:get', () => ({ ...updateState, current: app.getVersion(), autoUpdate: prefs().autoUpdate, packaged: app.isPackaged }));
+ipcMain.handle('update:setAuto', (_e, on) => { savePrefs({ autoUpdate: !!on }); autoUpdater.autoInstallOnAppQuit = !!on; return prefs().autoUpdate; });
+ipcMain.handle('update:check', () => { if (!app.isPackaged) return false; setUpdateState({ status: 'checking' }); autoUpdater.checkForUpdates().catch(() => setUpdateState({ status: 'error' })); return true; });
+ipcMain.handle('update:install', async () => {
+  if (!app.isPackaged) return false;
+  if (updateState.status !== 'ready') { setUpdateState({ status: 'downloading', percent: 0 }); await autoUpdater.downloadUpdate().catch(() => setUpdateState({ status: 'error' })); }
+  if (updateState.status === 'ready') { quitting = true; autoUpdater.quitAndInstall(true, true); }
+  return true;
+});
+
 app.whenReady().then(async () => {
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
+  if (await updateOnLaunch()) return; // installing the new version; it reopens by itself
   await startRelay();
   await waitForRelay();
   createTray();
