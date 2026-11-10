@@ -179,6 +179,7 @@ function prefs() { try { return { autoUpdate: true, ...JSON.parse(fs.readFileSyn
 function savePrefs(p) { try { fs.writeFileSync(prefsFile(), JSON.stringify({ ...prefs(), ...p })); } catch {} }
 
 let updateState = { status: 'idle', version: null, percent: 0 };
+let installNow = false; // pressed "Download and install"
 function setUpdateState(s) {
   updateState = { ...updateState, ...s };
   if (win && !win.isDestroyed()) win.webContents.send('update:state', updateState);
@@ -223,7 +224,8 @@ function setupUpdates() {
   autoUpdater.autoInstallOnAppQuit = prefs().autoUpdate;
   autoUpdater.on('update-available', i => {
     setUpdateState({ status: 'available', version: i.version });
-    if (prefs().autoUpdate) autoUpdater.downloadUpdate().catch(() => setUpdateState({ status: 'error' }));
+    // With auto-update on, start downloading in the background; the button can still install it now.
+    if (prefs().autoUpdate) setTimeout(() => { if (updateState.status === 'available') autoUpdater.downloadUpdate().catch(() => setUpdateState({ status: 'error' })); }, 1500);
   });
   autoUpdater.on('update-not-available', () => setUpdateState({ status: 'latest' }));
   autoUpdater.on('download-progress', p => setUpdateState({ status: 'downloading', percent: Math.round(p.percent) }));
@@ -231,6 +233,7 @@ function setupUpdates() {
   autoUpdater.on('update-downloaded', i => {
     updateReady = true;
     setUpdateState({ status: 'ready', version: i.version });
+    if (installNow) { quitting = true; autoUpdater.quitAndInstall(true, true); return; }
     if (!prefs().autoUpdate) return; // they'll press "Restart and update"
     // Nobody looking: install straight away, silently, and reopen hidden. Otherwise it installs next launch.
     if (!win || !win.isVisible()) { quitting = true; autoUpdater.quitAndInstall(true, true); return; }
@@ -246,7 +249,9 @@ ipcMain.handle('update:setAuto', (_e, on) => { savePrefs({ autoUpdate: !!on }); 
 ipcMain.handle('update:check', () => { if (!app.isPackaged) return false; setUpdateState({ status: 'checking' }); autoUpdater.checkForUpdates().catch(() => setUpdateState({ status: 'error' })); return true; });
 ipcMain.handle('update:install', async () => {
   if (!app.isPackaged) return false;
-  if (updateState.status !== 'ready') { setUpdateState({ status: 'downloading', percent: 0 }); await autoUpdater.downloadUpdate().catch(() => setUpdateState({ status: 'error' })); }
+  installNow = true;
+  if (updateState.status === 'available') { setUpdateState({ status: 'downloading', percent: 0 }); autoUpdater.downloadUpdate().catch(() => setUpdateState({ status: 'error' })); return true; }
+  if (updateState.status === 'downloading') return true; // installs as soon as the download finishes
   if (updateState.status === 'ready') { quitting = true; autoUpdater.quitAndInstall(true, true); }
   return true;
 });

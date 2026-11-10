@@ -1828,14 +1828,14 @@ if (window.guardianDesktop?.updates) {
       idle: 'Guardian checks for updates every 30 minutes.',
       checking: 'Checking for updates…',
       latest: "You're on the newest version.",
-      available: auto ? `Version ${st.version} found. Downloading…` : `Version ${st.version} is available.`,
+      available: `Version ${st.version} is available.`,
       downloading: `Downloading the update… ${st.percent || 0}%`,
-      ready: auto ? `Version ${st.version} is ready. It installs the next time Guardian starts.` : `Version ${st.version} is ready to install.`,
+      ready: `Version ${st.version} is downloaded and ready to install.`,
       error: "Couldn't check for updates. Check the internet connection.",
     }[st.status] || '';
     $('upd-status').textContent = st.packaged === false ? 'Updates only work in the installed app.' : text;
     $('upd-status').className = 'smtp-state' + (st.status === 'latest' ? ' ok' : '');
-    $('upd-install').hidden = !(st.status === 'ready' || (st.status === 'available' && !auto));
+    $('upd-install').hidden = !(st.status === 'ready' || st.status === 'available');
     $('upd-install').textContent = st.status === 'ready' ? 'Restart and update' : 'Download and install';
   };
   U.get().then(show); U.onState(st => show(st));
