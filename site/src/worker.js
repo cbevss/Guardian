@@ -75,6 +75,18 @@ async function sendMail(env, to, subject, text) {
       .bind('last_mail', JSON.stringify({ to, subject, text })).run();
     return;
   }
+  // Resend (an email-sending service) is used when its key is set: plain HTTPS, quick and reliable.
+  if (env.RESEND_API_KEY) {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ from: env.MAIL_FROM || 'Guardian <onboarding@resend.dev>', to: [to], subject, text }),
+      signal: AbortSignal.timeout(15000),
+    }).catch(() => null);
+    if (r && r.ok) return;
+    console.log('resend failed', r && r.status, r && await r.text().catch(() => ''));
+    throw new Error('mail_failed');
+  }
   const m = await getMailSettings(env);
   if (!m) throw new Error('mail_not_set_up');
   const msg = { from: { name: 'Guardian', email: m.user }, to, subject, text };
@@ -140,6 +152,7 @@ async function api(req, env, path) {
   const email = cleanEmail(body.email);
 
   if (path === '/api/health') {
+    if (env.RESEND_API_KEY) return json({ ok: true, mail: { service: 'resend', from: env.MAIL_FROM || 'onboarding@resend.dev' } });
     const m = await getMailSettings(env);
     return json({ ok: true, mail: m ? { host: m.host, port: m.port, from: m.user.replace(/^(.).*(@.*)$/, '$1***$2') } : null });
   }

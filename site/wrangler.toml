@@ -26,4 +26,6 @@ crons = ["17 3 * * *"]
 #   MAIL_KEY   random string that encrypts the email settings saved from the admin tab
 #   SMTP_USER  the email address codes are sent from (until changed in the admin tab)
 #   SMTP_PASS  its app-specific password
+#   RESEND_API_KEY  if set, emails are sent through Resend (recommended)
+#   MAIL_FROM  e.g. Guardian <codes@yourdomain.com> once a domain is verified in Resend
 #   SMTP_HOST / SMTP_PORT  optional, default smtp.mail.me.com:587 (iCloud)
