@@ -38,7 +38,11 @@
     <a class="btn btn-ghost" href="#features">See what it does</a>
   </div>
   <div class="ver" id="ver"></div>
-  <div class="shot-stage fade" style="--d:.85s"><div class="shot" id="shot"><img src="/app-requests.webp" width="1600" height="1000" alt="The Guardian app showing three access requests: Roblox, twitch.tv and Spotify, each with Deny, Temporary Access and Approve buttons"></div></div>
+  <div class="try fade" style="--d:1s">Try it: click around the app below</div>
+  <div class="shot-stage fade" style="--d:.85s"><div class="shot" id="shot">
+    <div class="live" id="live"><iframe src="/preview/" title="Clickable preview of the Guardian app with example data" tabindex="0"></iframe></div>
+    <img class="still" src="/app-requests.webp" width="1600" height="1000" alt="The Guardian app showing three access requests: Roblox, twitch.tv and Spotify, each with Deny, Temporary Access and Approve buttons">
+  </div></div>
 </div></header>
 
 <section id="features"><div class="wrap">
@@ -177,19 +181,10 @@ function onScroll() {
 addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
 onScroll();
 
-// Screenshot: tilts toward the mouse, with a light sheen.
-if (!reduce && matchMedia('(hover: hover)').matches) {
-  const tiltShot = (cx, cy) => {
-    const r = shot.getBoundingClientRect(), x = (cx - r.left) / r.width, y = (cy - r.top) / r.height;
-    if (x < 0 || x > 1 || y < 0 || y > 1) return false;
-    shot.style.setProperty('--ry', ((x - .5) * 8) + 'deg'); shot.style.setProperty('--rx', ((.5 - y) * 6) + 'deg');
-    shot.style.setProperty('--gx', x * 100 + '%'); shot.style.setProperty('--gy', y * 100 + '%');
-    return true;
-  };
-  shot.addEventListener('pointermove', e => tiltShot(e.clientX, e.clientY));
-  addEventListener('scroll', () => requestAnimationFrame(() => { if (!tiltShot(px, py)) { shot.style.setProperty('--ry', '0deg'); } }), { passive: true });
-  shot.addEventListener('pointerleave', () => { shot.style.setProperty('--ry', '0deg'); onScroll(); });
-}
+// App preview: the real app at desktop size, scaled to fit the page.
+const live = document.getElementById('live');
+function fitPreview() { live.style.setProperty('--k', live.clientWidth / 1280); }
+new ResizeObserver(fitPreview).observe(live); fitPreview();
 
 // Show the newest version number next to the download button.
 fetch('https://api.github.com/repos/cbevss/Guardian/releases/latest').then(r => r.ok ? r.json() : null)

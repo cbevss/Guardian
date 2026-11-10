@@ -78,8 +78,14 @@ a { color: inherit; }
 .ver { margin-top: 14px; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .shot-stage { perspective: 1400px; margin-top: 56px; }
 .shot { margin: 0 auto; max-width: 980px; border-radius: 14px; border: 1px solid var(--border2); box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 6px rgba(79,124,255,.05); overflow: hidden; transform: rotateX(var(--rx, 14deg)) rotateY(var(--ry, 0deg)) scale(var(--s, .94)); transition: transform .25s ease-out, box-shadow .4s; will-change: transform; position: relative; }
-.shot::after { content: ""; position: absolute; inset: 0; background: radial-gradient(500px circle at var(--gx, 50%) var(--gy, 0%), rgba(79,124,255,.16), transparent 45%); pointer-events: none; }
+
 .shot img { display: block; width: 100%; height: auto; }
+.live { position: relative; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #0b0d12; }
+.live iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 800px; border: 0; transform: scale(var(--k, .75)); transform-origin: 0 0; }
+.shot .still { display: none; }
+.try { margin-top: 18px; font: 500 12px var(--mono); color: var(--muted); letter-spacing: .04em; }
+.try::before { content: "↓ "; color: var(--accent); }
+@media (max-width: 760px) { .live { display: none; } .shot .still { display: block; } .try { display: none; } }
 
 /* sections */
 section { padding: 80px 0; }

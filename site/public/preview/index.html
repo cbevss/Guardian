@@ -1,0 +1,1873 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guardian preview</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* ── Tokens ─────────────────────────────────────────────────── */
+:root {
+  --bg:       #0b0d12;
+  --surface:  #12151d;
+  --panel:    #181c27;
+  --border:   #1e2333;
+  --border2:  #252c3f;
+  --fg:       #e4e8f4;
+  --muted:    #6b7592;
+  --accent:   #4f7cff;
+  --accent-h: #3d6be8;
+  --good:     #34d17a;
+  --warn:     #f5a623;
+  --bad:      #ff5555;
+  --shield:   #2353e8;
+  --radius:   10px;
+  --sidebar-w: 220px;
+  --hdr-h:    56px;
+  font-size: 14px;
+  color-scheme: dark;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+[hidden] { display:none !important; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+}
+.brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+  color: var(--fg);
+}
+.brand-ver {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.nav {
+  flex: 1;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+.nav-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 8px 4px;
+}
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  transition: background .15s, color .15s;
+  position: relative;
+}
+.nav-btn:hover { background: var(--border); color: var(--fg); }
+.nav-btn.active { background: rgba(79,124,255,.14); color: var(--accent); }
+.nav-btn svg { flex-shrink: 0; opacity: .7; }
+.nav-btn.active svg { opacity: 1; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--bad);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: flex; align-items:center; justify-content:center;
+  padding: 0 5px;
+}
+.nav-badge[hidden] { display: none !important; }
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.conn-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  transition: background .3s;
+}
+.dot.live { background: var(--good); box-shadow: 0 0 6px var(--good); }
+.dot.bad  { background: var(--bad); }
+
+/* ── Main area ──────────────────────────────────────────────── */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Top bar */
+#topbar {
+  height: var(--hdr-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+#topbar-title {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+}
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, transform .1s, opacity .15s;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-secondary { background: var(--border); color: var(--fg); }
+.btn-secondary:hover { background: var(--border2); }
+.btn-good { background: rgba(52,209,122,.15); color: var(--good); border: 1px solid rgba(52,209,122,.25); }
+.btn-good:hover { background: rgba(52,209,122,.25); }
+.btn-warn { background: rgba(245,166,35,.15); color: var(--warn); border: 1px solid rgba(245,166,35,.25); }
+.btn-warn:hover { background: rgba(245,166,35,.25); }
+.btn-bad { background: rgba(255,85,85,.15); color: var(--bad); border: 1px solid rgba(255,85,85,.25); }
+.btn-bad:hover { background: rgba(255,85,85,.25); }
+.btn-ghost { background: none; color: var(--muted); border: 1px solid var(--border2); }
+.btn-ghost:hover { color: var(--fg); border-color: var(--border2); background: var(--border); }
+.btn[disabled] { opacity: .4; cursor: default; pointer-events: none; }
+
+/* Input */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+input[type=text], input[type=password], input[type=number], input[type=email], textarea, select {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  color: var(--fg);
+  font: inherit;
+  font-size: 13.5px;
+  padding: 8px 11px;
+  outline: none;
+  transition: border-color .15s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+textarea { resize: vertical; }
+input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+/* ── Pages ──────────────────────────────────────────────────── */
+.page {
+  flex: 1;
+  overflow: hidden;
+  display: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .2s, transform .2s;
+}
+.page.active {
+  display: flex;
+  flex-direction: column;
+}
+.page.shown {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Connect page ───────────────────────────────────────────── */
+#page-connect {
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  overflow-y: auto;
+  padding: 24px;
+}
+.connect-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px 40px;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.connect-card h2 {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.connect-fields { display: flex; flex-direction: column; gap: 14px; }
+.connect-row { display: flex; gap: 10px; align-items: flex-end; }
+.connect-row .field { flex: 1; }
+.connect-remember {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--muted); cursor: pointer;
+}
+.connect-remember input { margin: 0; }
+
+/* ── View page ──────────────────────────────────────────────── */
+#page-view {
+  flex-direction: column;
+}
+#screen-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+  position: relative;
+}
+#screen {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  outline: none;
+}
+#screen.control { cursor: crosshair; }
+#control-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(245,166,35,.92);
+  color: #000;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 20px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s;
+  white-space: nowrap;
+}
+#control-banner.show { opacity: 1; }
+
+/* ── Requests page ──────────────────────────────────────────── */
+#page-requests {
+  overflow-y: auto;
+  padding: 24px;
+}
+.requests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+.req-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: cardIn .22s ease both;
+}
+@keyframes cardIn {
+  from { opacity:0; transform: translateY(8px) scale(.98); }
+  to   { opacity:1; transform: none; }
+}
+.req-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.req-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+.req-icon.app  { background: rgba(79,124,255,.15); }
+.req-icon.site { background: rgba(52,209,122,.15); }
+.req-card-info { flex: 1; min-width: 0; }
+.req-name {
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-all;
+  line-height: 1.3;
+}
+.req-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+.req-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+.req-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.req-actions .btn {
+  flex: 1;
+  justify-content: center;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.requests-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  color: var(--muted);
+  font-size: 14px;
+  min-height: 200px;
+}
+.requests-empty svg { opacity: .3; }
+
+/* ── Rules page ─────────────────────────────────────────────── */
+#page-rules {
+  overflow-y: auto;
+  padding: 24px;
+}
+.rules-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  max-width: 900px;
+}
+@media (max-width: 700px) { .rules-grid { grid-template-columns: 1fr; } }
+.rule-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rule-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+}
+.rule-card textarea {
+  min-height: 110px;
+  font-size: 12.5px;
+}
+.rule-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.rule-hint code {
+  background: var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.toggle-row input { flex-shrink: 0; }
+
+/* ── Lock screen ── */
+#lock { position:fixed; inset:0; z-index:500; background:radial-gradient(ellipse at 50% 30%, #141a2c 0%, var(--bg) 70%); display:flex; align-items:center; justify-content:center; padding:16px; transition: opacity .35s, transform .35s; }
+#lock.gone { opacity:0; transform: scale(1.03); pointer-events:none; }
+.lock-card { width:100%; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; animation: cardIn .35s ease both; }
+.lock-card.shake { animation: shake .35s; }
+@keyframes shake { 20%,60% { transform: translateX(-7px); } 40%,80% { transform: translateX(7px); } }
+.lock-shield { filter: drop-shadow(0 8px 24px rgba(79,124,255,.35)); margin-bottom:6px; }
+.lock-card h2 { font-size:20px; font-weight:700; }
+.lock-sub { font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:6px; }
+.lock-card input { width:100%; text-align:center; padding:11px; font-size:15px; }
+.lock-card .btn { width:100%; justify-content:center; padding:11px; }
+.lock-err { min-height:18px; font-size:12.5px; color:var(--bad); }
+.lock-links { display:flex; gap:16px; justify-content:center; }
+.lock-link { background:none; border:none; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
+.lock-link:hover { color:var(--fg); }
+
+/* ── Admin ── */
+#page-admin { overflow-y:auto; padding:24px; }
+.admin-wrap { max-width:760px; display:flex; flex-direction:column; gap:14px; }
+.admin-form { display:flex; flex-direction:column; gap:12px; }
+.admin-warn { font-size:13px; color:var(--warn); background:rgba(245,166,35,.08); border:1px solid rgba(245,166,35,.3); padding:10px 14px; border-radius:9px; }
+.kv { display:grid; grid-template-columns:auto 1fr; gap:8px 18px; font-size:13px; }
+.kv dt { color:var(--muted); }
+.kv dd { font-variant-numeric: tabular-nums; word-break:break-all; }
+.admin-docs details { border-top:1px solid var(--border); padding:10px 0; }
+.admin-docs summary { cursor:pointer; font-weight:600; font-size:13.5px; }
+.admin-docs p { font-size:13px; color:var(--muted); line-height:1.6; margin-top:8px; }
+.admin-docs p b { color:var(--fg); }
+.admin-docs code { background:var(--border); padding:1px 5px; border-radius:4px; font-size:12px; }
+
+/* ── Account ── */
+.acct-more summary { cursor:pointer; color:var(--accent); font-size:13px; font-weight:500; list-style:none; }
+.acct-more summary::-webkit-details-marker { display:none; }
+.acct-more summary::before { content:'›'; display:inline-block; margin-right:6px; transition:transform .15s; }
+.acct-more[open] summary::before { transform:rotate(90deg); }
+.connect-fields > input { width:100%; }
+.smtp-state { font-size:12.5px; padding:8px 11px; border-radius:8px; background:var(--bg); border:1px solid var(--border); color:var(--muted); }
+.smtp-state.ok { color:var(--good); border-color:rgba(52,209,122,.3); background:rgba(52,209,122,.06); }
+body:not(.desk) .desk-only { display:none !important; }
+
+/* ── Parents ── */
+#page-connect { gap: 16px; justify-content: flex-start; padding-top: 40px; }
+.plist { display:flex; flex-direction:column; gap:8px; }
+.prow { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--bg); border:1px solid var(--border); border-radius:9px; animation: cardIn .2s ease both; }
+.prow.waiting { border-color: rgba(245,166,35,.4); background: rgba(245,166,35,.06); }
+.pav { width:30px; height:30px; border-radius:50%; background:rgba(79,124,255,.18); color:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0; }
+.prow.waiting .pav { background:rgba(245,166,35,.18); color:var(--warn); }
+.pinfo { flex:1; min-width:0; }
+.pname { font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.psub { font-size:11.5px; color:var(--muted); }
+.ptag { font-size:10.5px; font-weight:600; color:var(--accent); background:rgba(79,124,255,.12); padding:2px 7px; border-radius:5px; }
+.prow .btn { padding:5px 10px; font-size:12px; }
+
+/* ── Not linked yet ── */
+.empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted); text-align:center; padding:40px 16px; min-height:320px; animation: cardIn .25s ease both; }
+.empty-state svg { opacity:.35; margin-bottom:4px; }
+.es-title { color:var(--fg); font-size:16px; font-weight:600; }
+.es-sub { font-size:13px; max-width:360px; line-height:1.5; margin-bottom:6px; }
+body.linked .empty-state { display:none; }
+body.linked #busy:not([hidden]) { display:flex !important; }
+body.linked #busy:not([hidden]) ~ #screen-wrap { display:none; }
+body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid { display:none; }
+
+/* ── Unrestricted ── */
+.unr-card { transition: border-color .25s, background .25s; }
+.unr-card.on { border-color: rgba(245,166,35,.45); background: rgba(245,166,35,.07); }
+.unr-pill { display:none; margin-top:8px; font-size:11px; font-weight:600; color:var(--warn); background:rgba(245,166,35,.12); border:1px solid rgba(245,166,35,.3); padding:4px 8px; border-radius:6px; text-align:center; }
+.unr-pill.on { display:block; }
+
+/* ── Schedule ───────────────────────────────────────────────── */
+.schedule-card {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 900px;
+}
+.schedule-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+@media (max-width: 600px) { .days-grid { grid-template-columns: 1fr; } }
+.day-col { display: flex; flex-direction: column; gap: 5px; }
+.day-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.day-col input { padding: 6px 8px; font-size: 12px; }
+
+/* ── Toast ──────────────────────────────────────────────────── */
+#toast-wrap {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--fg);
+  font-size: 13px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  animation: toastIn .2s ease both;
+  pointer-events: none;
+}
+@keyframes toastIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes toastOut { to { opacity:0; transform: translateY(8px); } }
+.toast.out { animation: toastOut .2s ease both; }
+
+/* ── Modal ──────────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.modal-backdrop.show { opacity: 1; }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  padding: 28px;
+  width: 100%;
+  max-width: 400px;
+  transform: scale(.96) translateY(8px);
+  transition: transform .22s;
+}
+.modal-backdrop.show .modal { transform: none; }
+.modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+.modal-name {
+  font-size: 22px;
+  font-weight: 700;
+  word-break: break-all;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.modal-path {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.modal-actions { display: flex; gap: 8px; }
+.modal-actions .btn { flex: 1; justify-content: center; }
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+
+<style id="demo">
+  #lock { display: none !important; }
+  html, body { overscroll-behavior: contain; }
+  /* same scrollbar as the website */
+  * { scrollbar-width: thin; scrollbar-color: #2f3a5c var(--bg); }
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b5bd9, #24305a); border-radius: 10px; border: 3px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #6b8cff, #3b5bd9); }
+  .demo-note { position: fixed; right: 14px; bottom: 12px; z-index: 300; font: 500 11px Inter, system-ui, sans-serif; color: #8189a6; background: rgba(18,21,29,.9); border: 1px solid #252c3f; padding: 5px 10px; border-radius: 20px; pointer-events: none; }
+</style>
+<script>window.guardianDesktop = { request() {}, show() {}, version: async () => '1.0.30', serverBase: async () => '',
+  sec: async name => name === 'passkeys' ? [{ id: 'p1', name: 'Windows Hello on this PC', created: Date.now() - 86400000 * 3 }] : { ok: false } };</script>
+</head>
+<body>
+
+<!-- ── Lock screen ── -->
+<div id="lock">
+  <div class="lock-card" id="lock-card">
+    <svg width="54" height="54" viewBox="0 0 32 32" fill="none" class="lock-shield">
+      <defs><linearGradient id="lsg" x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4f7cff"/><stop offset="100%" stop-color="#2353e8"/></linearGradient></defs>
+      <path d="M16 2 L28 7 L28 16 C28 22.5 22.5 27.5 16 30 C9.5 27.5 4 22.5 4 16 L4 7 Z" fill="url(#lsg)"/>
+      <rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="white" opacity=".95"/>
+      <path d="M13 16 L13 13 C13 10.8 19 10.8 19 13 L19 16" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".95"/>
+      <circle cx="16" cy="19.5" r="1.2" fill="#2353e8"/><rect x="15.1" y="19.5" width="1.8" height="2.5" rx="0.9" fill="#2353e8"/>
+    </svg>
+    <h2 id="lock-title"></h2>
+    <div class="lock-sub" id="lock-sub"></div>
+    <input type="email" id="lock-email" placeholder="Email address" autocomplete="email" hidden>
+    <input type="text" id="lock-code" placeholder="6-digit code from the email" inputmode="numeric" maxlength="6" autocomplete="one-time-code" hidden>
+    <input type="password" id="lock-pw" placeholder="Password" autocomplete="current-password">
+    <input type="password" id="lock-pw2" placeholder="Type it again" autocomplete="new-password" hidden>
+    <div class="lock-err" id="lock-err"></div>
+    <button class="btn btn-primary" id="lock-go"></button>
+    <button class="btn btn-ghost" id="lock-passkey" hidden>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15 19 4m-3 3 3 3m-6-6 3 3"/></svg>
+      Use a passkey
+    </button>
+    <div class="lock-links">
+      <button class="lock-link" id="lock-forgot" hidden>Forgot password?</button>
+      <button class="lock-link" id="lock-back" hidden>Back</button>
+      <button class="lock-link" id="lock-alt" hidden>I already have an account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Sidebar ─────────────────────────────────────────────── -->
+<nav id="sidebar">
+  <div class="brand">
+    <svg class="brand-icon" viewBox="0 0 32 32" fill="none">
+      <defs>
+        <linearGradient id="bsg" x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#4f7cff"/>
+          <stop offset="100%" stop-color="#2353e8"/>
+        </linearGradient>
+      </defs>
+      <path d="M16 2 L28 7 L28 16 C28 22.5 22.5 27.5 16 30 C9.5 27.5 4 22.5 4 16 L4 7 Z" fill="url(#bsg)"/>
+      <rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="white" opacity=".95"/>
+      <path d="M13 16 L13 13 C13 10.8 19 10.8 19 13 L19 16" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".95"/>
+      <circle cx="16" cy="19.5" r="1.2" fill="#2353e8"/>
+      <rect x="15.1" y="19.5" width="1.8" height="2.5" rx="0.9" fill="#2353e8"/>
+    </svg>
+    <div>
+      <div class="brand-name">Guardian</div>
+      <div class="brand-ver" id="sidebar-ver">Not connected</div>
+      <div class="brand-ver" id="app-ver"></div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn active" data-page="view" id="nav-view">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg>
+      Screen
+    </button>
+    <button class="nav-btn" data-page="requests" id="nav-requests">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Requests
+      <span class="nav-badge" id="req-badge" hidden>0</span>
+    </button>
+    <button class="nav-btn" data-page="rules" id="nav-rules">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Rules
+    </button>
+    <div style="flex:1"></div>
+    <button class="nav-btn" data-page="admin" id="nav-admin" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+      Admin
+    </button>
+    <button class="nav-btn" data-page="connect" id="nav-connect">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="conn-status">
+      <div class="dot" id="dot"></div>
+      <span id="conn-label">Disconnected</span>
+    </div>
+    <div class="unr-pill" id="unr-pill">Unrestricted</div>
+  </div>
+</nav>
+
+<!-- ── Main ────────────────────────────────────────────────── -->
+<div id="main">
+  <div id="topbar">
+    <span id="topbar-title">Screen</span>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+
+  <!-- Connect page -->
+  <div class="page" id="page-connect">
+    <div class="connect-card">
+      <h2>
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+          <path d="M16 2 L28 7 L28 16 C28 22.5 22.5 27.5 16 30 C9.5 27.5 4 22.5 4 16 L4 7 Z" fill="var(--accent)"/>
+          <rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="white" opacity=".9"/>
+          <path d="M13 16 L13 13 C13 10.8 19 10.8 19 13 L19 16" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <circle cx="16" cy="19.5" r="1.2" fill="var(--accent)"/>
+          <rect x="15.1" y="19.5" width="1.8" height="2.5" rx="0.9" fill="var(--accent)"/>
+        </svg>
+        His PC
+      </h2>
+      <div class="rule-hint" style="margin-top:-8px">Type the Device ID and pairing code shown when Guardian was installed on his PC. You only need to do this once.</div>
+      <div class="connect-fields">
+        <div class="field">
+          <label>Your name</label>
+          <input id="pname" type="text" placeholder="e.g. Mum" maxlength="40">
+        </div>
+        <div class="field">
+          <label>Device ID</label>
+          <input id="devid" type="text" placeholder="123456789" inputmode="numeric" maxlength="9">
+        </div>
+        <div class="field">
+          <label>Pairing code</label>
+          <input id="code" type="password" placeholder="············">
+        </div>
+        <label class="connect-remember">
+          <input type="checkbox" id="remember" checked>
+          Remember on this device
+        </label>
+        <button class="btn btn-primary" id="connect" style="justify-content:center;padding:10px;">Save and connect</button>
+        <button class="btn btn-ghost" id="forget" style="justify-content:center">Forget this PC</button>
+      </div>
+    </div>
+
+    <div class="connect-card" id="account-card">
+      <h2 style="font-size:17px">Your account</h2>
+      <div class="rule-hint" style="margin-top:-8px">Signed in as <b id="acct-email" style="color:var(--fg)"></b>. Your password is needed each time Guardian starts.</div>
+      <details class="acct-more">
+        <summary>Change password</summary>
+        <div class="connect-fields" style="margin-top:12px">
+          <input type="password" id="cp-old" placeholder="Current password" autocomplete="current-password">
+          <input type="password" id="cp-new" placeholder="New password" autocomplete="new-password">
+          <input type="password" id="cp-new2" placeholder="New password again" autocomplete="new-password">
+          <button class="btn btn-primary" id="cp-go" style="justify-content:center">Change password</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="connect-card desk-only" id="passkey-card">
+      <h2 style="font-size:17px">Passkeys</h2>
+      <div class="rule-hint" style="margin-top:-8px">Unlock Guardian with Windows Hello (your face, fingerprint or PC PIN) instead of typing your password.</div>
+      <div id="passkey-list" class="plist"></div>
+      <button class="btn btn-secondary" id="pk-add" style="justify-content:center">Add a passkey</button>
+    </div>
+
+    <div class="connect-card" id="pending-card" hidden style="border-color:rgba(245,166,35,.4)">
+      <h2 style="font-size:16px;color:var(--warn)">Waiting for approval</h2>
+      <div class="rule-hint">The pairing code was right. Ask the parent who set up Guardian to open Settings in their app and press Approve next to your name. You'll connect the moment they do.</div>
+    </div>
+
+    <div class="connect-card" id="parents-card" hidden>
+      <h2 style="font-size:17px">Parents</h2>
+      <div class="rule-hint" style="margin-top:-8px">Only these parents can see his screen and change his rules. New parents need approving here first.</div>
+      <div id="waiting-list" class="plist"></div>
+      <div id="parent-list" class="plist"></div>
+    </div>
+  </div>
+
+  <!-- View page -->
+  <div class="page active" id="page-view">
+    <div class="empty-state"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg><div class="es-title">His screen will show here</div><div class="es-sub" data-es></div><button class="btn btn-primary" data-goto-settings>Open Settings</button></div>
+    <div class="empty-state" id="busy" hidden style="display:none"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><div class="es-title">Another parent is watching his screen</div><div class="es-sub">Only one parent can watch at a time. It'll show here as soon as they leave the Screen page.</div></div>
+    <div id="screen-wrap">
+      <canvas id="screen" tabindex="0"></canvas>
+      <div id="control-banner">🟡 Controlling — restrictions paused</div>
+    </div>
+  </div>
+
+  <!-- Admin page (only the admin account sees this) -->
+  <div class="page" id="page-admin">
+    <div class="admin-wrap">
+      
+
+      <div class="rule-card">
+        <h3>Password reset email</h3>
+        <div class="rule-hint">Guardian's server sends every sign-up and reset code from this one account. The password is stored on the server only, never on anyone's PC, and nobody else can see this setting. For iCloud, make an app-specific password at account.apple.com → Sign-In and Security → App-Specific Passwords. For Gmail, turn on 2-Step Verification and make one at myaccount.google.com/apppasswords.</div>
+        <div class="smtp-state" id="smtp-state"></div>
+        <div class="admin-form">
+          <div class="field"><label>Email service</label>
+            <select id="smtp-preset">
+              <option value="smtp.mail.me.com:587">iCloud Mail</option>
+              <option value="smtp.gmail.com:465">Gmail</option>
+              <option value="smtp.office365.com:587">Outlook / Hotmail</option>
+              <option value="custom">Other</option>
+            </select></div>
+          <div class="field"><label>Send from (email address)</label><input type="email" id="smtp-user" placeholder="cbevs@icloud.com"></div>
+          <div class="field"><label>App password</label><input type="password" id="smtp-pass" placeholder="App-specific password"></div>
+          <div class="connect-row" id="smtp-custom" hidden>
+            <div class="field"><label>Server</label><input type="text" id="smtp-host" placeholder="smtp.example.com"></div>
+            <div class="field" style="max-width:90px"><label>Port</label><input type="text" id="smtp-port" placeholder="587"></div>
+          </div>
+          <div class="connect-row">
+            <button class="btn btn-primary" id="smtp-save" style="flex:1;justify-content:center">Save for everyone</button>
+            <button class="btn btn-ghost" id="smtp-test" style="flex:1;justify-content:center">Send test email</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rule-card">
+        <h3>System</h3>
+        <div class="kv" id="admin-info"></div>
+      </div>
+
+      <div class="rule-card admin-docs">
+        <h3>How Guardian works</h3>
+        <details open><summary>The pieces</summary>
+          <p><b>His PC</b> runs a protected Windows service (GuardianService, as SYSTEM). It restarts itself if closed, and his standard account can't stop or remove it. It streams his screen, takes remote input, enforces app and website rules and screen time.</p>
+          <p><b>Parent apps</b> run a small relay on port 8080 that his PC finds over the home network (UDP 47800 broadcast). The app window is the relay's page, wrapped in the desktop app with a tray icon and auto-updates.</p></details>
+        <details><summary>Apps</summary>
+          <p>Approving or blocking an app covers its whole install folder, so helpers and updaters keep working (e.g. <code>C:\Program Files (x86)\Steam</code>). Games inside launcher libraries (steamapps/common, Epic Games, Riot Games…) each count as their own app. A program name like <code>discord.exe</code> also works. Moving an item to the other list removes it from the first. Windows and Guardian's own programs can never be blocked.</p>
+          <p>Temporary Access lasts until that app is closed.</p></details>
+        <details><summary>Websites</summary>
+          <p>His PC's DNS points at Guardian's own filter (127.0.0.1). Approving <code>youtube.com</code> covers all its subdomains, and helper sites it loads in the next 60 seconds are learned automatically. Blocked and unknown sites get "no such site". Approved lookups go to Cloudflare for Families (1.1.1.3), which also blocks adult and malware sites, even in Unrestricted mode. Browser secure-DNS is switched off by policy so it can't skip the filter.</p>
+          <p>Temporary Access for a website lasts 1 hour. VPNs and proxy browser extensions can get around website filtering, so keep those blocked as apps.</p></details>
+        <details><summary>Screen time</summary>
+          <p>Times are written like <code>16:00-20:00</code> or <code>07:30-08:30, 15:00-20:00</code>. Outside them his PC locks every 15 seconds. An empty day stays locked all day. Paused while a parent has control.</p></details>
+        <details><summary>Control and Unrestricted</summary>
+          <p>While a parent has control, all restrictions are paused for them and come back the moment control is handed back or the connection drops. Unrestricted switches off every rule, request and the schedule until turned back on. Only one parent can watch his screen at a time.</p></details>
+        <details><summary>Parents and security</summary>
+          <p>The first parent app to pair is added automatically; others need approving. Removing a parent cuts them off straight away. The pairing code is checked by his PC (5 wrong tries locks it for 5 minutes). Each app's saved pairing code is encrypted with its password; a recovery copy is sealed by Windows for that Windows user and is only released by an emailed reset code or a passkey.</p>
+          <p>Accounts live on Guardian's server (a Cloudflare Worker with a D1 database). Signing up needs a code sent to that email, so only the real owner of cbevs@icloud.com can be admin. Passwords are stored hashed (PBKDF2). 5 wrong passwords locks the account for 15 minutes and emails a reset code. Each app also keeps its own encrypted copy so it can unlock offline.</p>
+          <p>The website (info and downloads) is served by the same Worker. Its address is set in desktop/config.js.</p></details>
+        <details><summary>Updates</summary>
+          <p>Every push to main on github.com/cbevss/Guardian builds release v1.0.&lt;build&gt;. Parent apps check every 30 minutes and install when the window is hidden or on quit. His PC checks every 3 hours, swaps in the new guardian-agent.exe and restarts the service. The repo must be public for downloads to work.</p></details>
+        <details><summary>Limits</summary>
+          <p>In home mode a parent PC with Guardian open must be on the same network as his PC. Remote input can't reach the Windows lock screen or admin prompts. Outside-the-home access needs a relay server with HTTPS.</p></details>
+      </div>
+    </div>
+  </div>
+
+  <!-- Requests page -->
+  <div class="page" id="page-requests">
+    <div id="req-list" class="requests-grid"></div>
+  </div>
+
+  <!-- Rules page -->
+  <div class="page" id="page-rules">
+    <div class="empty-state"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg><div class="es-title">His rules will show here</div><div class="es-sub" data-es></div><button class="btn btn-primary" data-goto-settings>Open Settings</button></div>
+    <div class="rules-grid">
+      <div class="rule-card unr-card" id="unr-card" style="grid-column:1/-1">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <h3 id="unr-title">Restrictions are on</h3>
+            <div class="rule-hint" id="unr-hint">Apps, websites and screen time follow the rules below.</div>
+          </div>
+          <button class="btn btn-warn" id="unr-btn">Remove all restrictions</button>
+        </div>
+      </div>
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Approved apps
+        </h3>
+        <div class="rule-hint">One app per line.</div>
+        <textarea id="allowlist" rows="5"></textarea>
+      </div>
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Blocked apps
+        </h3>
+        <div class="rule-hint">One app per line.</div>
+        <textarea id="blocklist" rows="5"></textarea>
+      </div>
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Approved websites
+        </h3>
+        <div class="rule-hint">One website per line, like <code>youtube.com</code>.</div>
+        <textarea id="allowsites" rows="5"></textarea>
+      </div>
+      <div class="rule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bad)" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Blocked websites
+        </h3>
+        <div class="rule-hint">One website per line.</div>
+        <textarea id="blocksites" rows="5"></textarea>
+      </div>
+      <div class="rule-card" style="grid-column:1/-1">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><path d="M12 2v4m0 12v4m8-10h-4M8 12H4m11.3-6.3l-2.8 2.8M9.5 14.5l-2.8 2.8m9.1 0l-2.8-2.8M9.5 9.5 6.7 6.7"/></svg>
+          Ask about unknown
+        </h3>
+        <label class="toggle-row">
+          <input type="checkbox" id="askunknown">
+          Send us a request when he tries to open an app that's not in either list
+        </label>
+        <label class="toggle-row" style="margin-top:8px">
+          <input type="checkbox" id="askunknownsites">
+          Send us a request when he tries to visit a website that's not in either list
+        </label>
+      </div>
+      <div class="schedule-card">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Screen time
+        </h3>
+        <label class="toggle-row">
+          <input type="checkbox" id="schedon">
+          Lock the PC outside these hours
+        </label>
+        <div class="days-grid" id="days"></div>
+        <div class="rule-hint" style="margin-top:10px">e.g. <code>16:00-20:00</code> or <code>07:30-08:30, 15:00-20:00</code>. Leave a day empty to keep it locked all day.</div>
+      </div>
+      <div style="grid-column:1/-1; display:flex; gap:10px; justify-content:flex-end; padding-bottom:8px;">
+        <button class="btn btn-secondary" id="rules-cancel">Cancel</button>
+        <button class="btn btn-primary" id="rules-save">Save rules</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Request modal ─────────────────────────────────────────── -->
+<div class="modal-backdrop" id="req-modal" style="display:none">
+  <div class="modal">
+    <h2 id="modal-title">Access request</h2>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="modal-name" id="modal-name"></div>
+    <div class="modal-path" id="modal-path"></div>
+    <div class="modal-actions">
+      <button class="btn btn-bad" id="modal-deny">Deny</button>
+      <button class="btn btn-warn" id="modal-temp">Temporary Access</button>
+      <button class="btn btn-good" id="modal-approve">Approve</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const canvas = $('screen'), ctx = canvas.getContext('2d');
+let ws = null, inbox = null, control = false, lastMove = 0;
+let policy = { blocked_apps:[], allowed_apps:[], ask_unknown:true, ask_unknown_sites:true };
+let queue = [];
+let shownPolicy = null;
+
+window.guardianDesktop?.version().then(v => { $('app-ver').textContent = 'v' + v; });
+
+// ── This parent app's identity (random, never shown) ──
+function myId() {
+  let id = store.get('guardian.parent_id');
+  if (!id) {
+    const b = new Uint8Array(16); crypto.getRandomValues(b);
+    id = [...b].map(x => x.toString(16).padStart(2,'0')).join('');
+    store.set('guardian.parent_id', id);
+  }
+  return id;
+}
+const myName = () => store.get('guardian.name') || 'Parent';
+
+// ── Storage ──────────────────────────────────────────────────
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} },
+};
+$('devid').value = store.get('guardian.id');
+
+// ── Account & lock screen ──
+// A random vault key encrypts the saved pairing code. The vault key itself is stored
+// locked with your password, and (in the desktop app) a recovery copy is sealed by
+// Windows for your account, released only after an emailed code or a passkey.
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = a => btoa(String.fromCharCode(...new Uint8Array(a)));
+const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+const b64url = a => b64(a).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64url = t => unb64(t.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((t.length + 3) % 4));
+const desk = window.guardianDesktop;
+const sec = (name, ...a) => desk ? desk.sec(name, ...a) : Promise.resolve({ error: 'browser' });
+async function pwKey(pw, salt) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+}
+const aesKey = raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
+async function seal(key, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  return b64(iv) + '.' + b64(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc.encode(text)));
+}
+async function open_(key, blob) {
+  const [iv, ct] = blob.split('.');
+  return dec.decode(await crypto.subtle.decrypt({ name:'AES-GCM', iv: unb64(iv) }, key, unb64(ct)));
+}
+const vault = {
+  raw: null, key: null, code: '',
+  async setCode(c) { this.code = c; if (this.key) store.set('guardian.code_enc', c ? await seal(this.key, c) : ''); },
+};
+['guardian.code','guardian.pw_check'].forEach(k => store.set(k, '')); // older formats
+
+const account = () => store.get('guardian.account_email');
+let session = { token: '', admin: false };          // from the Guardian server, kept in memory only
+async function setPassword(pw) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  store.set('guardian.pw_salt', b64(salt));
+  store.set('guardian.pw_wrap', await seal(await pwKey(pw, salt), b64(vault.raw)));
+}
+async function openVault(rawB64) {
+  vault.raw = unb64(rawB64); vault.key = await aesKey(vault.raw);
+  const c = store.get('guardian.code_enc');
+  try { vault.code = c ? await open_(vault.key, c) : ''; } catch { vault.code = ''; }
+  sec('saveRecovery', b64(vault.raw));
+}
+async function localUnlock(pw) {
+  try { await openVault(await open_(await pwKey(pw, unb64(store.get('guardian.pw_salt'))), store.get('guardian.pw_wrap'))); return true; }
+  catch { return false; }
+}
+const server = (m, p, b) => sec('api', m, p, b, session.token);
+const serverSays = r => ({
+  offline: "Can't reach Guardian's server. Check the internet connection.",
+  bad_email: 'Type a valid email address', short_password: 'Use at least 8 characters for the password',
+  exists: 'That email already has an account. Go back and sign in.', wait: 'A code was sent less than a minute ago. Check your inbox and spam folder.',
+  wrong: 'That code is wrong. Check the email and try again.', expired: 'That code has expired. Ask for a new one.',
+  mail_not_set_up: "Guardian's email isn't set up yet, so codes can't be sent.", browser: 'Accounts work in the Guardian app.',
+}[r?.error] || "Something went wrong. Try again in a minute.");
+
+let lockView = 'login', pendingPw = '', localFails = 0, lockUntil = 0;
+const maskEmail = e => (e || '').replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(Math.min(b.length, 6)) + c);
+function lockErr(m, ok) {
+  $('lock-err').textContent = m || ''; $('lock-err').style.color = ok ? 'var(--good)' : '';
+  if (m && !ok) { $('lock-card').classList.remove('shake'); void $('lock-card').offsetWidth; $('lock-card').classList.add('shake'); }
+}
+async function showLock(view) {
+  lockView = view || (account() ? 'login' : 'create');
+  const v = lockView, show = (id, on) => $(id).hidden = !on;
+  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = '');
+  show('lock-email', v === 'create' || v === 'signin');
+  show('lock-pw', v !== 'verify'); show('lock-code', v === 'reset' || v === 'verify');
+  show('lock-pw2', v === 'create' || v === 'reset');
+  show('lock-forgot', v === 'login' || v === 'signin'); show('lock-back', v === 'reset' || v === 'verify' || v === 'signin');
+  $('lock-alt').hidden = v !== 'create';
+  $('lock-pw').placeholder = v === 'reset' ? 'New password' : 'Password';
+  $('lock-pw').autocomplete = v === 'login' || v === 'signin' ? 'current-password' : 'new-password';
+  $('lock-title').textContent = { create:'Create your Guardian account', signin:'Sign in to Guardian', verify:'Check your email', login:'Welcome back', reset:'Reset your password' }[v];
+  $('lock-sub').textContent = {
+    create: "Your email is where codes go to confirm your account and to reset your password if you forget it.",
+    signin: 'Use the email and password of your Guardian account.',
+    verify: `We emailed a 6-digit code to ${maskEmail($('lock-email').value.trim())}. Type it here to finish making your account.`,
+    login: `Signed in as ${account()}. Guardian is locked until you enter your password.`,
+    reset: `We emailed a 6-digit code to ${maskEmail(account() || $('lock-email').value.trim())}. It works for 15 minutes.`,
+  }[v];
+  $('lock-go').textContent = { create:'Create account', signin:'Sign in', verify:'Confirm', login:'Unlock', reset:'Set new password' }[v];
+  $('lock-go').disabled = false;
+  const keys = v === 'login' && desk ? await sec('passkeys') : [];
+  show('lock-passkey', Array.isArray(keys) && keys.length > 0);
+  setTimeout(() => ({ create:$('lock-email'), signin:$('lock-email'), verify:$('lock-code'), reset:$('lock-code') }[v] || $('lock-pw')).focus(), 50);
+}
+function unlocked() {
+  ['lock-pw','lock-pw2','lock-code'].forEach(i => $(i).value = ''); pendingPw = '';
+  $('lock').classList.add('gone'); setTimeout(() => $('lock').remove(), 400);
+  afterUnlock(); renderAccount();
+}
+async function newVault(email, pw) {
+  vault.raw = crypto.getRandomValues(new Uint8Array(32)); vault.key = await aesKey(vault.raw);
+  ['guardian.code_enc'].forEach(k => store.set(k, ''));
+  await setPassword(pw); store.set('guardian.account_email', email);
+  sec('saveRecovery', b64(vault.raw));
+}
+async function sendReset(auto) {
+  const r = await sec('api', 'POST', '/api/reset/request', { email: account() || $('lock-email').value.trim(), auto });
+  if (r?.ok) { await showLock('reset'); if (auto) lockErr('Too many wrong tries, so we emailed you a reset code.', true); return; }
+  lockErr(serverSays(r));
+}
+const busy = (on, text) => { $('lock-go').disabled = on; if (text) $('lock-go').textContent = text; };
+async function lockSubmit() {
+  const v = lockView, pw = $('lock-pw').value, email = (v === 'create' || v === 'signin' ? $('lock-email').value : account()).trim().toLowerCase();
+  if (v === 'create') {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return lockErr('Type a valid email address');
+    if (pw.length < 8) return lockErr('Use at least 8 characters for the password');
+    if (pw !== $('lock-pw2').value) return lockErr("The two passwords don't match");
+    busy(true, 'Sending code…');
+    const r = await sec('api', 'POST', '/api/signup', { email, password: pw });
+    if (!r?.ok) { busy(false, 'Create account'); return lockErr(serverSays(r)); }
+    pendingPw = pw; return showLock('verify');
+  }
+  if (v === 'verify') {
+    const email2 = $('lock-email').value.trim().toLowerCase();
+    if (!/^\d{6}$/.test($('lock-code').value.trim())) return lockErr('Type the 6-digit code from the email');
+    busy(true, 'Checking…');
+    const r = await sec('api', 'POST', '/api/verify', { email: email2, code: $('lock-code').value.trim() });
+    if (!r?.ok) { busy(false, 'Confirm'); return lockErr(serverSays(r)); }
+    session = { token: r.token, admin: !!r.admin };
+    await newVault(email2, pendingPw); return unlocked();
+  }
+  if (v === 'signin') { // an account made on another PC or the website
+    busy(true, 'Signing in…');
+    const r = await sec('api', 'POST', '/api/login', { email, password: pw });
+    if (!r?.ok) { busy(false, 'Sign in'); return lockErr(r?.error === 'locked' ? 'Too many wrong tries. We emailed you a reset code.' : r?.error === 'wrong_login' ? 'Wrong email or password' : serverSays(r)); }
+    session = { token: r.token, admin: !!r.admin };
+    await newVault(email, pw); return unlocked();
+  }
+  if (v === 'login') {
+    if (Date.now() < lockUntil) return lockErr(`Too many tries. Wait ${Math.ceil((lockUntil - Date.now())/1000)} seconds`);
+    busy(true, 'Checking…');
+    if (await localUnlock(pw)) {
+      localFails = 0;
+      sec('api', 'POST', '/api/login', { email, password: pw }).then(r => { if (r?.ok) { session = { token: r.token, admin: !!r.admin }; renderAdmin(); } });
+      return unlocked();
+    }
+    // Not this PC's password. Ask the server: it may have been changed on the website or another PC.
+    const r = await sec('serverLogin', email, pw);
+    busy(false, 'Unlock');
+    if (r?.ok && r.key) { session = { token: r.token, admin: !!r.admin }; await openVault(r.key); await setPassword(pw); return unlocked(); }
+    if (r?.error === 'locked') {
+      if (r.emailed) { await showLock('reset'); return lockErr('Too many wrong tries, so we emailed you a reset code.', true); }
+      return lockErr('Locked for a while after too many wrong tries. Press Forgot password to get a code.');
+    }
+    if (r?.error === 'offline') {
+      if (++localFails >= 5) { localFails = 0; lockUntil = Date.now() + 30000; }
+      return lockErr("Wrong password. (Can't reach Guardian's server, so a reset email can't be sent right now.)");
+    }
+    return lockErr(`Wrong password${r?.left && r.left <= 2 ? ` (${r.left} ${r.left === 1 ? 'try' : 'tries'} left before we email you a reset code)` : ''}`);
+  }
+  if (v === 'reset') {
+    if (!/^\d{6}$/.test($('lock-code').value.trim())) return lockErr('Type the 6-digit code from the email');
+    if (pw.length < 8) return lockErr('Use at least 8 characters for the new password');
+    if (pw !== $('lock-pw2').value) return lockErr("The two passwords don't match");
+    busy(true, 'Checking…');
+    const r = await sec('resetConfirm', email, $('lock-code').value.trim(), pw);
+    busy(false, 'Set new password');
+    if (!r?.ok) return lockErr(serverSays(r));
+    session = { token: r.token, admin: !!r.admin };
+    if (r.key) { await openVault(r.key); await setPassword(pw); }
+    else { await newVault(email, pw); lockErr(''); } // no recovery copy on this PC: the saved PC needs adding again
+    return unlocked();
+  }
+}
+async function passkeyUnlock() {
+  try {
+    const challenge = await sec('challenge'); const keys = await sec('passkeys');
+    const cred = await navigator.credentials.get({ publicKey: {
+      challenge: unb64url(challenge), rpId: 'localhost', userVerification: 'required', timeout: 60000,
+      allowCredentials: keys.map(k => ({ type:'public-key', id: unb64url(k.id) })),
+    }});
+    const r = await sec('verifyPasskey', { id: cred.id, clientDataJSON: b64(cred.response.clientDataJSON),
+      authenticatorData: b64(cred.response.authenticatorData), signature: b64(cred.response.signature) });
+    if (!r?.ok || !r.key) return lockErr("That passkey didn't work. Use your password instead.");
+    await openVault(r.key); unlocked();
+  } catch (e) { if (e?.name !== 'NotAllowedError') lockErr("Passkey couldn't be used on this PC. Use your password."); }
+}
+$('lock-go').onclick = lockSubmit;
+$('lock-passkey').onclick = passkeyUnlock;
+$('lock-forgot').onclick = () => {
+  if (lockView === 'signin' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($('lock-email').value.trim())) return lockErr('Type your email first');
+  sendReset(false);
+};
+$('lock-back').onclick = () => { lockErr(''); showLock(account() ? 'login' : 'create'); };
+$('lock-alt').onclick = () => { lockErr(''); showLock('signin'); };
+['lock-email','lock-code','lock-pw','lock-pw2'].forEach(i => $(i).addEventListener('keydown', e => { if (e.key === 'Enter') lockSubmit(); }));
+showLock();
+
+
+// ── Page routing ─────────────────────────────────────────────
+const pages = {};
+document.querySelectorAll('.page').forEach(p => pages[p.id.replace('page-','')] = p);
+let currentPage = 'view';
+
+function goTo(name) {
+  const old = pages[currentPage], next = pages[name];
+  if (!next) return;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === name));
+  if (old) { old.classList.remove('shown'); setTimeout(() => { old.classList.remove('active'); }, 200); }
+  next.classList.add('active');
+  requestAnimationFrame(() => next.classList.add('shown'));
+  const leaving = currentPage;
+  currentPage = name;
+  if (name === 'view' && leaving !== 'view') startViewer();
+  if (leaving === 'view' && name !== 'view') stopViewer();
+
+  const titles = { admin: 'Admin', connect: 'Settings', view: 'Screen', requests: 'Requests', rules: 'Rules & restrictions' };
+  $('topbar-title').textContent = titles[name] || 'Guardian';
+  renderTopbarActions(name);
+}
+document.querySelectorAll('.nav-btn[data-page]').forEach(b => {
+  b.addEventListener('click', () => { if (!b.disabled) goTo(b.dataset.page); });
+});
+setTimeout(() => pages['view'].classList.add('shown'), 50);
+
+function setNavEnabled() {} // every page is always open; pages show an empty state until his PC is linked
+
+function renderEmpty(state) {
+  const saved = store.get('guardian.id') && vault.code;
+  if (state === 'pending') {
+    document.querySelectorAll('[data-es]').forEach(e => e.textContent = "The pairing code was right. Now another parent needs to approve this app in their Guardian Settings. It connects as soon as they do.");
+    document.querySelectorAll('[data-goto-settings]').forEach(b => b.hidden = true);
+    return;
+  }
+  document.querySelectorAll('[data-es]').forEach(e => e.textContent = saved
+    ? "His PC isn't reachable right now. Guardian keeps trying in the background and connects as soon as it's on."
+    : "Add his PC in Settings with the Device ID and pairing code from the install. Everything else works without it.");
+  document.querySelectorAll('[data-goto-settings]').forEach(b => b.hidden = !!saved);
+  $('forget').hidden = !store.get('guardian.id');
+}
+document.querySelectorAll('[data-goto-settings]').forEach(b => b.onclick = () => goTo('connect'));
+
+let retry = null;
+function scheduleReconnect() {
+  clearTimeout(retry);
+  if (currentPage !== 'view' || !linked) return;
+  retry = setTimeout(startViewer, 8000);
+}
+let linked = false;
+function setLinked(on) {
+  linked = on;
+  document.body.classList.toggle('linked', on);
+  if (on) { setStatus('Live', 'live'); if (currentPage === 'view') startViewer(); }
+  else { stopViewer(); setStatus(store.get('guardian.id') ? 'His PC is offline' : 'No PC added yet', 'off'); renderEmpty(); }
+}
+// His screen only streams while the Screen page is open, so two parents don't fight over it.
+function startViewer() {
+  const id = store.get('guardian.id'), code = vault.code || $('code').value.trim();
+  if (!linked || !id || (ws && ws.readyState <= 1)) return;
+  $('busy').hidden = true;
+  connectTo(id, code, false);
+}
+function stopViewer() {
+  clearTimeout(retry);
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
+  if (control) { control = false; canvas.classList.remove('control'); $('control-banner').classList.remove('show'); }
+  document.body.classList.remove('viewing');
+  renderTopbarActions(currentPage);
+}
+
+function renderTopbarActions(page) {
+  const bar = $('topbar-actions');
+  bar.innerHTML = '';
+  if (page === 'view' && ws) {
+    const monitors = document.createElement('select');
+    monitors.id = 'monitors';
+    monitors.style.cssText = 'font-size:12.5px;padding:5px 8px;';
+    bar.appendChild(monitors);
+    // restore options if any
+    document.querySelectorAll('#monitors option').forEach(o => monitors.add(o.cloneNode(true)));
+    monitors.onchange = e => send({ type: 'select_monitor', index: +e.target.value });
+
+    const ctrlBtn = document.createElement('button');
+    ctrlBtn.id = 'ctrl-btn';
+    ctrlBtn.className = 'btn ' + (control ? 'btn-warn' : 'btn-secondary');
+    ctrlBtn.textContent = control ? 'Stop controlling' : 'Take control';
+    ctrlBtn.onclick = () => setControl(!control);
+    bar.appendChild(ctrlBtn);
+
+    const clipBtn = document.createElement('button');
+    clipBtn.className = 'btn btn-ghost';
+    clipBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/></svg> Send clipboard';
+    clipBtn.onclick = sendClipboard;
+    bar.appendChild(clipBtn);
+
+    const discBtn = document.createElement('button');
+    discBtn.className = 'btn btn-bad';
+    discBtn.textContent = 'Stop watching';
+    discBtn.onclick = () => goTo('requests');
+    bar.appendChild(discBtn);
+  }
+  if (page === 'requests') {
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'btn btn-ghost';
+    clearBtn.textContent = 'Show modal';
+    clearBtn.onclick = () => { if (queue.length) showModal(); };
+    bar.appendChild(clearBtn);
+  }
+}
+
+// ── Status helpers ───────────────────────────────────────────
+function setStatus(text, state) { // state: 'off'|'live'|'bad'
+  $('dot').className = 'dot' + (state === 'live' ? ' live' : state === 'bad' ? ' bad' : '');
+  $('conn-label').textContent = text;
+  $('sidebar-ver').textContent = text;
+}
+function toast(text, dur = 2600) {
+  const wrap = $('toast-wrap'), el = document.createElement('div');
+  el.className = 'toast'; el.textContent = text;
+  wrap.appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, dur);
+}
+function send(obj) { if (ws?.readyState === 1) ws.send(JSON.stringify(obj)); }
+function sendInbox(obj) { if (inbox?.readyState === 1) inbox.send(JSON.stringify(obj)); }
+const wsUrl = p => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${p}?id=${$('devid').value.trim()}`;
+
+// ── Connection ───────────────────────────────────────────────
+function onConnected(on) {
+  document.body.classList.toggle('viewing', on);
+  if (!on) { if (control) { control = false; canvas.classList.remove('control'); $('control-banner').classList.remove('show'); } ws = null; renderTopbarActions(currentPage); scheduleReconnect(); }
+}
+function setControl(on) {
+  control = on;
+  canvas.classList.toggle('control', on);
+  $('control-banner').classList.toggle('show', on);
+  send({ type: 'control', on });
+  renderTopbarActions('view');
+  if (ws?.readyState === 1) toast(on ? 'Restrictions paused — you have control' : 'Control returned, restrictions active');
+  if (on) canvas.focus();
+}
+
+$('connect').onclick = () => {
+  const id = $('devid').value.trim(), code = $('code').value.trim();
+  if (!/^\d{9}$/.test(id)) { toast('Device ID must be 9 digits'); return; }
+  if (!code) { toast('Type the pairing code'); return; }
+  store.set('guardian.id', id);
+  vault.setCode($('remember').checked ? code : '');
+  store.set('guardian.name', $('pname').value.trim());
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  stopViewer();
+  if (inbox && inbox.readyState <= 1) { inbox.onclose = null; inbox.close(); }
+  setStatus('Connecting…', 'off');
+  startInbox(id, code);
+};
+$('forget').onclick = () => {
+  store.set('guardian.id', ''); vault.setCode('');
+  $('devid').value = ''; $('code').value = '';
+  clearTimeout(retry);
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  if (inbox) { inbox.onclose = null; inbox.close(); inbox = null; }
+  queue = []; parentList = []; waitingParents = []; renderQueue(); renderParents(); setLinked(false);
+  toast('His PC was removed from this app');
+};
+
+function connectTo(id, code, manual) {
+  ws = new WebSocket(wsUrl('/ws/controller'));
+  ws.binaryType = 'blob';
+  ws.onclose = () => { onConnected(false); };
+  ws.onmessage = async ev => {
+    if (typeof ev.data !== 'string') {
+      const ab = await ev.data.arrayBuffer();
+      const bmp = await createImageBitmap(new Blob([ab.slice(1)], { type:'image/jpeg' }));
+      if (canvas.width !== bmp.width || canvas.height !== bmp.height) { canvas.width = bmp.width; canvas.height = bmp.height; }
+      ctx.drawImage(bmp, 0, 0); bmp.close();
+      return;
+    }
+    const m = JSON.parse(ev.data);
+    if (m.type === 'auth_required') send({ type:'auth', code, parent_id: myId(), name: myName(), email: account() });
+    if (m.type === 'busy') { $('busy').hidden = false; scheduleReconnect(); }
+    if (m.type === 'agent_left') ws.close();
+    if (m.type === 'auth_failed') {
+      const why = { locked:'Too many wrong codes. Locked for 5 minutes', denied:'Another parent declined this app', removed:'This app was removed as a parent', update_app:'Update Guardian to connect' }[m.reason] || 'Wrong pairing code. Check it in Settings';
+      toast(why);
+      if (m.reason === 'wrong_code') vault.setCode('');
+      if (m.reason === 'denied' || m.reason === 'removed') { vault.setCode(''); }
+      ws.close();
+
+    }
+    if (m.type === 'hello') {
+      policy = m.policy || policy;
+      renderUnrestricted();
+      onConnected(true);
+      renderTopbarActions('view');
+      // Build monitor select
+      const sel = $('monitors');
+      if (sel) {
+        sel.innerHTML = '';
+        m.monitors.forEach(mon => sel.add(new Option(`Screen ${mon.index + 1}${mon.primary ? ' (main)':''} · ${mon.width}×${mon.height}`, mon.index)));
+      }
+    }
+    if (m.type === 'policy') { policy = m.policy; renderUnrestricted(); }
+    if (m.type === 'clipboard') {
+      try { await navigator.clipboard.writeText(m.text); toast('Clipboard copied from their PC'); }
+      catch { toast('Their clipboard: ' + m.text.slice(0, 80)); }
+    }
+  };
+}
+
+// Runs once the app is unlocked.
+function afterUnlock() {
+  if (vault.code) $('code').value = vault.code;
+  renderEmpty();
+  setStatus(store.get('guardian.id') ? 'Connecting…' : 'No PC added yet', 'off');
+  if (store.get('guardian.id') && vault.code) startInbox(store.get('guardian.id'), vault.code);
+}
+
+// ── Inbox (approval requests) ─────────────────────────────────
+function startInbox(id, code) {
+  if (inbox?.readyState <= 1) return;
+  const url = `${location.protocol === 'https:' ? 'wss':'ws'}://${location.host}/ws/parent?id=${id}`;
+  inbox = new WebSocket(url);
+  inbox.onclose = () => { setLinked(false); setTimeout(() => startInbox(id, code), 5000); };
+  inbox.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'auth_required') sendInbox({ type:'auth', code, parent_id: myId(), name: myName(), email: account() });
+    if (m.type === 'parent_request') { if (!waitingParents.some(w => w.id === m.id)) waitingParents.push({ id:m.id, name:m.name }); renderParents(); parentAlert(m); }
+    if (m.type === 'auth_pending') { setStatus('Waiting for approval', 'off'); renderEmpty('pending'); $('pending-card').hidden = false; }
+    if (m.type === 'agent_left') setLinked(false);
+    if (m.type === 'auth_failed') {
+      inbox.onclose = null; inbox.close(); setLinked(false);
+      const why = { locked:'Too many wrong codes. Locked for 5 minutes', denied:'Another parent declined this app', removed:'This app was removed as a parent', update_app:'Update Guardian to connect' }[m.reason] || 'Wrong pairing code. Check it in Settings';
+      toast(why, 5000);
+      if (m.reason !== 'locked') vault.setCode('');
+      renderEmpty(); goTo('connect');
+    }
+    if (m.type === 'parent_hello') {
+      agentInfo = { admin: !!m.admin, version: m.agent_version || '' };
+      // The shared reset-email account, kept sealed by Windows on this PC. Never shown to non-admins.
+      setTimeout(renderAdmin, 0);
+      $('pending-card').hidden = true; if (!linked) { setLinked(true); if (currentPage === 'connect') { goTo('view'); toast('Connected to his PC'); } } policy = m.policy; queue = m.pending; parentList = m.parents || []; waitingParents = m.waiting_parents || []; renderQueue(); renderUnrestricted(); renderParents(); }
+    if (m.type === 'request') {
+      if (!queue.some(r => r.app === m.request.app)) queue.push(m.request);
+      notify(m.request); renderQueue();
+    }
+    if (m.type === 'resolved') {
+      queue = queue.filter(r => r.app !== m.app);
+      if ($('req-modal').dataset.app === m.app) closeModal();
+      renderQueue();
+    }
+  };
+}
+
+// ── Requests rendering ────────────────────────────────────────
+function renderQueue() {
+  const badge = $('req-badge');
+  badge.hidden = queue.length === 0;
+  badge.textContent = queue.length;
+  const list = $('req-list');
+  list.innerHTML = '';
+  if (!queue.length) {
+    list.innerHTML = `<div class="requests-empty" style="grid-column:1/-1">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span>No pending requests</span>
+    </div>`;
+    return;
+  }
+  queue.forEach(r => {
+    const isApp = r.kind !== 'site';
+    const card = document.createElement('div');
+    card.className = 'req-card';
+    card.innerHTML = `
+      <div class="req-card-header">
+        <div class="req-icon ${isApp ? 'app' : 'site'}">${isApp ? '📦' : '🌐'}</div>
+        <div class="req-card-info">
+          <div class="req-name">${esc(r.name || r.app)}</div>
+          <div class="req-sub">${esc(r.path || r.app)}</div>
+        </div>
+        <div class="req-time">${timeAgo(r.requested_at)}</div>
+      </div>
+      <div class="req-actions">
+        <button class="btn btn-bad" data-a="Deny" data-k="${esc(r.app)}">Deny</button>
+        <button class="btn btn-warn" data-a="Temporary" data-k="${esc(r.app)}">Temporary Access</button>
+        <button class="btn btn-good" data-a="Approve" data-k="${esc(r.app)}">Approve</button>
+      </div>`;
+    card.querySelectorAll('[data-a]').forEach(b => b.onclick = () => decide(b.dataset.k, b.dataset.a));
+    list.appendChild(card);
+  });
+}
+function decide(app, decision) {
+  sendInbox({ type:'decide', app, decision });
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function timeAgo(ts) {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+
+// ── Modal (shown when page is in background) ──────────────────
+function showModal() {
+  if (!queue.length) return;
+  const r = queue[0];
+  $('modal-title').textContent = 'Access request';
+  $('modal-sub').textContent = r.kind === 'site' ? "He's trying to visit:" : "He's trying to open:";
+  $('modal-name').textContent = r.name || r.app;
+  $('modal-path').textContent = r.path || '';
+  const m = $('req-modal');
+  m.dataset.app = r.app;
+  m.style.display = 'flex';
+  requestAnimationFrame(() => m.classList.add('show'));
+}
+function closeModal() {
+  const m = $('req-modal');
+  m.classList.remove('show');
+  setTimeout(() => { m.style.display = 'none'; m.dataset.app = ''; }, 220);
+}
+$('modal-deny').onclick    = () => { const a = $('req-modal').dataset.app; decide(a,'Deny');      closeModal(); };
+$('modal-temp').onclick    = () => { const a = $('req-modal').dataset.app; decide(a,'Temporary'); closeModal(); };
+$('modal-approve').onclick = () => { const a = $('req-modal').dataset.app; decide(a,'Approve');   closeModal(); };
+$('req-modal').addEventListener('click', e => { if (e.target === $('req-modal')) { /* can't dismiss */ } });
+
+function notify(r) {
+  window.guardianDesktop?.request();
+  if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') {
+    if (currentPage !== 'requests') showModal();
+    return;
+  }
+  try { const n = new Notification('Guardian: access request', { body:`He wants to ${r.kind==='site'?'visit':'open'} ${r.name||r.app}`, tag:r.app }); n.onclick = () => { window.guardianDesktop?.show(); goTo('requests'); }; } catch {}
+  showModal();
+}
+
+// ── Rules page ────────────────────────────────────────────────
+const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+const DAYNAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+$('days').innerHTML = DAYS.map((d,i) => `
+  <div class="day-col">
+    <div class="day-label">${DAYNAMES[i]}</div>
+    <input id="day-${d}" placeholder="e.g. 16:00-20:00" type="text">
+  </div>`).join('');
+
+document.querySelectorAll('.nav-btn[data-page="rules"]').forEach(b => b.addEventListener('click', () => {
+  shownPolicy = {
+    allowed: [...policy.allowed_apps], blocked: [...policy.blocked_apps],
+    aSites: [...(policy.allowed_sites||[])], bSites: [...(policy.blocked_sites||[])],
+  };
+  $('allowlist').value  = policy.allowed_apps.join('\n');
+  $('blocklist').value  = policy.blocked_apps.join('\n');
+  $('askunknown').checked = policy.ask_unknown;
+  $('allowsites').value = (policy.allowed_sites||[]).join('\n');
+  $('blocksites').value = (policy.blocked_sites||[]).join('\n');
+  $('askunknownsites').checked = policy.ask_unknown_sites !== false;
+  const sch = policy.schedule || { enabled:false, days:{} };
+  $('schedon').checked = sch.enabled;
+  DAYS.forEach(d => $('day-'+d).value = (sch.days[d]||[]).join(', '));
+}));
+
+$('rules-cancel').onclick = () => {
+  if (shownPolicy) {
+    $('allowlist').value  = shownPolicy.allowed.join('\n');
+    $('blocklist').value  = shownPolicy.blocked.join('\n');
+    $('allowsites').value = shownPolicy.aSites.join('\n');
+    $('blocksites').value = shownPolicy.bSites.join('\n');
+  }
+  toast('Changes discarded');
+};
+
+function moveResolve(allow, block, oldAllow, oldBlock) {
+  const nA = allow.filter(a => !oldAllow.includes(a)), nB = block.filter(a => !oldBlock.includes(a));
+  block = block.filter(a => !nA.includes(a) || nB.includes(a));
+  allow = allow.filter(a => !block.includes(a));
+  return [allow, block];
+}
+$('rules-save').onclick = () => {
+  const lines = id => [...new Set($(id).value.split('\n').map(s => s.trim()).filter(Boolean))];
+  const appKey = a => (a.includes('\\')||a.includes('/')) ? a.replace(/\\/g,'/').replace(/\/+$/,'').toLowerCase() : a.toLowerCase();
+  const siteKey = a => a.toLowerCase().replace(/^https?:\/\//,'').split(/[\/?#:]/)[0].replace(/^www\./,'');
+  const sp = shownPolicy || { allowed:[], blocked:[], aSites:[], bSites:[] };
+  const lc = l => l.map(s => s.toLowerCase());
+  const [allowed, blocked] = moveResolve(lines('allowlist').map(appKey), lines('blocklist').map(appKey), lc(sp.allowed), lc(sp.blocked));
+  const [aSites, bSites]   = moveResolve(lines('allowsites').map(siteKey), lines('blocksites').map(siteKey), sp.aSites, sp.bSites);
+  const days = {};
+  DAYS.forEach(d => { const w = $('day-'+d).value.split(',').map(s=>s.trim()).filter(Boolean); if(w.length) days[d]=w; });
+  sendInbox({ type:'set_policy', policy:{
+    allowed_apps: allowed, blocked_apps: blocked, ask_unknown: $('askunknown').checked,
+    allowed_sites: aSites, blocked_sites: bSites, ask_unknown_sites: $('askunknownsites').checked,
+    schedule: { enabled: $('schedon').checked, days },
+    unrestricted: !!policy.unrestricted,
+  }});
+  shownPolicy = { allowed, blocked, aSites, bSites };
+  toast('Rules saved ✓');
+};
+
+// ── Account settings ──
+if (desk) document.body.classList.add('desk');
+async function renderAccount() {
+  $('acct-email').textContent = account();
+  if (!desk) return;
+  const keys = await sec('passkeys');
+  $('passkey-list').innerHTML = (Array.isArray(keys) ? keys : []).map(k => `
+    <div class="prow"><div class="pav">🔑</div>
+      <div class="pinfo"><div class="pname">${esc(k.name)}</div><div class="psub">Added ${new Date(k.created).toLocaleDateString()}</div></div>
+      <button class="btn btn-ghost" data-pkdel="${esc(k.id)}">Remove</button></div>`).join('') || '<div class="psub">No passkeys yet.</div>';
+  document.querySelectorAll('[data-pkdel]').forEach(b => b.onclick = async () => { await sec('removePasskey', b.dataset.pkdel); toast('Passkey removed'); renderAccount(); });
+  renderAdmin();
+}
+
+// ── Admin (only for the admin account) ──
+// The Guardian server decides who's admin (an account whose email was confirmed by code).
+const isAdminAccount = () => !!desk && session.admin;
+let agentInfo = { admin: null, version: '' };
+async function renderAdmin() {
+  $('nav-admin').hidden = !isAdminAccount();
+  if (!isAdminAccount()) { if (currentPage === 'admin') goTo('view'); return; }
+  const r = await server('GET', '/api/admin/mail'), m = r?.mail ? { configured: true, ...r.mail } : null;
+  const st = await server('GET', '/api/admin/stats');
+  $('smtp-state').className = 'smtp-state' + (m ? ' ok' : '');
+  $('smtp-state').textContent = r?.error === 'offline' ? "Can't reach Guardian's server right now." : m ? `Codes are sent from ${m.user}` : "Not set up yet, so nobody can get sign-up or reset codes.";
+  if (m && document.activeElement?.closest?.('#page-admin') == null) {
+    $('smtp-user').value = m.user;
+    const preset = `${m.host}:${m.port}`, opt = [...$('smtp-preset').options].find(o => o.value === preset);
+    $('smtp-preset').value = opt ? preset : 'custom';
+    $('smtp-host').value = m.host; $('smtp-port').value = m.port;
+    $('smtp-custom').hidden = !!opt;
+    $('smtp-pass').placeholder = 'Saved. Type it again only to change it';
+  }
+  const appV = desk ? await desk.version() : '';
+  const rows = [
+    ['Signed in as', account()],
+    ['This app', appV ? 'v' + appV : ''],
+    ["His PC's Guardian", agentInfo.version ? 'v' + agentInfo.version : 'Not connected'],
+    ['Device ID', store.get('guardian.id') || 'Not added'],
+    ['Connection', linked ? 'Home network, live' : 'Offline'],
+    ['Parents', parentList.map(p => p.name).join(', ') || '—'],
+    ['Guardian accounts', st?.ok ? `${st.verified} confirmed` : '—'],
+    ['Server', (await desk.serverBase?.()) || 'Guardian server'],
+  ];
+  $('admin-info').innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+}
+$('smtp-preset').onchange = () => {
+  const v = $('smtp-preset').value; $('smtp-custom').hidden = v !== 'custom';
+  if (v !== 'custom') { const [h, p] = v.split(':'); $('smtp-host').value = h; $('smtp-port').value = p; }
+};
+$('smtp-preset').onchange();
+$('cp-go').onclick = async () => {
+  const [o, n, n2] = ['cp-old','cp-new','cp-new2'].map(i => $(i).value);
+  if (n.length < 8) return toast('Use at least 8 characters');
+  if (n !== n2) return toast("New passwords don't match");
+  const r = await server('POST', '/api/password', { old: o, password: n });
+  if (r?.error === 'wrong_login') return toast('Current password is wrong');
+  if (!r?.ok) return toast(r?.error === 'signed_out' ? 'Restart Guardian and try again' : serverSays(r));
+  await setPassword(n); ['cp-old','cp-new','cp-new2'].forEach(i => $(i).value = '');
+  toast('Password changed');
+};
+$('pk-add').onclick = async () => {
+  try {
+    const existing = await sec('passkeys');
+    const cred = await navigator.credentials.create({ publicKey: {
+      rp: { id: 'localhost', name: 'Guardian' },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: account(), displayName: account() },
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      pubKeyCredParams: [{ type:'public-key', alg:-7 }],
+      authenticatorSelection: { authenticatorAttachment:'platform', userVerification:'required', residentKey:'preferred' },
+      excludeCredentials: existing.map(k => ({ type:'public-key', id: unb64url(k.id) })),
+      attestation: 'none', timeout: 60000,
+    }});
+    if (cred.response.getPublicKeyAlgorithm?.() !== -7) return toast("This PC's passkey type isn't supported");
+    const ok = await sec('addPasskey', { id: cred.id, name: 'Windows Hello on this PC', spki: b64(cred.response.getPublicKey()) });
+    toast(ok === true ? 'Passkey added. You can use it next time Guardian starts' : "Couldn't save the passkey");
+    renderAccount();
+  } catch (e) {
+    toast(e?.name === 'NotAllowedError' ? 'Passkey cancelled' : e?.name === 'InvalidStateError' ? 'This PC already has a passkey' : 'Passkeys need Windows Hello set up on this PC');
+  }
+};
+$('smtp-save').onclick = async () => {
+  if (!isAdminAccount()) return;
+  const user = $('smtp-user').value.trim(), pass = $('smtp-pass').value.replace(/\s+/g, '');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user)) return toast('Type a valid email address');
+  if (!pass) return toast('Type the app password (needed each time you save)');
+  const mail = { user, pass, host: $('smtp-host').value.trim(), port: Number($('smtp-port').value) || 587 };
+  const r = await server('PUT', '/api/admin/mail', { mail });
+  if (!r?.ok) return toast(r?.error === 'offline' ? "Can't reach Guardian's server" : "Couldn't save");
+  $('smtp-pass').value = '';
+  toast('Saved. Every Guardian app uses it straight away', 5000);
+  renderAdmin();
+};
+$('smtp-test').onclick = async () => {
+  $('smtp-test').disabled = true; $('smtp-test').textContent = 'Sending…';
+  const r = await server('POST', '/api/admin/test-mail');
+  $('smtp-test').disabled = false; $('smtp-test').textContent = 'Send test email';
+  toast(r?.ok ? `Test email sent to ${account()}` : r?.error === 'mail_not_set_up' ? 'Save the email settings first' : "Couldn't send. Check the address and app password", 5000);
+};
+
+// ── Parents ──
+let parentList = [], waitingParents = [];
+$('pname').value = store.get('guardian.name');
+function renderParents() {
+  $('parents-card').hidden = !parentList.length && !waitingParents.length;
+  const me = myId(), initial = n => esc((n || '?').trim()[0].toUpperCase());
+  $('waiting-list').innerHTML = waitingParents.map(w => `
+    <div class="prow waiting"><div class="pav">${initial(w.name)}</div>
+      <div class="pinfo"><div class="pname">${esc(w.name)}</div><div class="psub">Wants to become a parent</div></div>
+      <button class="btn btn-bad" data-deny="${esc(w.id)}">Deny</button>
+      <button class="btn btn-good" data-approve="${esc(w.id)}">Approve</button></div>`).join('');
+  $('parent-list').innerHTML = parentList.map(p => `
+    <div class="prow"><div class="pav">${initial(p.name)}</div>
+      <div class="pinfo"><div class="pname">${esc(p.name)}</div><div class="psub">Added ${new Date(p.added*1000).toLocaleDateString()}</div></div>
+      ${p.id === me ? '<span class="ptag">You</span>' : (parentList.length > 1 ? `<button class="btn btn-ghost" data-remove="${esc(p.id)}">Remove</button>` : '')}</div>`).join('');
+  document.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => { sendInbox({ type:'approve_parent', id:b.dataset.approve }); toast('Approved'); });
+  document.querySelectorAll('[data-deny]').forEach(b => b.onclick = () => { sendInbox({ type:'deny_parent', id:b.dataset.deny }); waitingParents = waitingParents.filter(w => w.id !== b.dataset.deny); renderParents(); });
+  document.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => {
+    if (b.dataset.confirm) { sendInbox({ type:'remove_parent', id:b.dataset.remove }); toast('Parent removed'); return; }
+    b.dataset.confirm = '1'; b.textContent = 'Click again to remove'; b.className = 'btn btn-bad';
+    setTimeout(() => renderParents(), 4000);
+  });
+}
+function parentAlert(m) {
+  window.guardianDesktop?.request();
+  toast(`${m.name} wants to become a parent. Approve or deny in Settings`, 6000);
+  try { if (document.hidden && Notification.permission === 'granted') { const n = new Notification('Guardian: new parent', { body:`${m.name} wants access. Open Settings to approve.` }); n.onclick = () => { window.guardianDesktop?.show(); goTo('connect'); }; } } catch {}
+}
+
+// ── Unrestricted mode ─────────────────────────────────────────
+function renderUnrestricted() {
+  const on = !!policy.unrestricted;
+  $('unr-card').classList.toggle('on', on);
+  $('unr-pill').classList.toggle('on', on);
+  $('unr-title').textContent = on ? 'Unrestricted: no rules apply' : 'Restrictions are on';
+  $('unr-hint').textContent = on
+    ? 'He can open any app and visit any website, at any time. Nothing is asked or blocked until you turn restrictions back on.'
+    : 'Apps, websites and screen time follow the rules below.';
+  $('unr-btn').textContent = on ? 'Turn restrictions back on' : 'Remove all restrictions';
+  $('unr-btn').className = 'btn ' + (on ? 'btn-good' : 'btn-warn');
+}
+$('unr-btn').onclick = () => {
+  const p = { ...policy, unrestricted: !policy.unrestricted };
+  const msg = { type:'set_policy', policy: p };
+  sendInbox(msg);
+  policy = p; renderUnrestricted();
+  toast(p.unrestricted ? 'All restrictions removed' : 'Restrictions back on');
+};
+
+// ── Send clipboard ────────────────────────────────────────────
+async function sendClipboard() {
+  try { const t = await navigator.clipboard.readText(); send({ type:'clipboard', text:t }); toast('Clipboard sent to their PC'); }
+  catch { toast('Browser blocked clipboard read — paste manually'); }
+}
+
+// ── Remote input ──────────────────────────────────────────────
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height };
+}
+const BUTTONS = ['left','middle','right'];
+canvas.addEventListener('mousemove', e => {
+  if (!control) return;
+  const now = performance.now(); if (now - lastMove < 16) return; lastMove = now;
+  send({ type:'mouse_move', ...pos(e) });
+});
+canvas.addEventListener('mousedown', e => {
+  if (!control) return; e.preventDefault(); canvas.focus();
+  send({ type:'mouse_move', ...pos(e) });
+  send({ type:'mouse_button', button:BUTTONS[e.button]||'left', down:true });
+});
+canvas.addEventListener('mouseup', e => { if (control) send({ type:'mouse_button', button:BUTTONS[e.button]||'left', down:false }); });
+canvas.addEventListener('contextmenu', e => { if (control) e.preventDefault(); });
+canvas.addEventListener('wheel', e => {
+  if (!control) return; e.preventDefault();
+  send({ type:'wheel', dx:Math.sign(e.deltaX), dy:Math.sign(e.deltaY) });
+}, { passive:false });
+for (const t of ['keydown','keyup']) {
+  canvas.addEventListener(t, e => {
+    if (!control) return; e.preventDefault();
+    if (t==='keydown' && e.repeat && e.key.length>1 && !['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) return;
+    send({ type:'key', key:e.key, down:t==='keydown' });
+  });
+}
+canvas.addEventListener('blur', () => {
+  if (control) ['Shift','Control','Alt','Meta'].forEach(k => send({ type:'key', key:k, down:false }));
+});
+</script>
+
+<script id="demo-script">
+// ---- Website preview: the real Guardian app with example data and no connections ----
+(() => {
+  const now = Date.now();
+  document.body.classList.add('desk');
+  store.set('guardian.id', '482913577'); store.set('guardian.name', 'Leo');
+  store.set('guardian.account_email', 'parent@example.com');
+  vault.code = 'demo';
+  // No networking in the preview.
+  startInbox = () => {}; startViewer = () => {}; stopViewer = () => {};
+  sendInbox = msg => {
+    if (msg.type === 'decide') { queue = queue.filter(r => r.app !== msg.app); renderQueue(); toast(msg.decision === 'Deny' ? 'Denied' : msg.decision === 'Temporary' ? 'Temporary access given' : 'Approved'); }
+    if (msg.type === 'set_policy') { policy = msg.policy; renderUnrestricted(); }
+    if (msg.type === 'approve_parent') { const w = waitingParents.find(x => x.id === msg.id); waitingParents = waitingParents.filter(x => x.id !== msg.id); if (w) parentList.push({ id: w.id, name: w.name, added: now / 1000 }); renderParents(); }
+    if (msg.type === 'deny_parent') { waitingParents = waitingParents.filter(x => x.id !== msg.id); renderParents(); }
+  };
+  send = () => {};
+
+  policy = {
+    allowed_apps: ['c:/program files (x86)/steam', 'c:/users/leo/appdata/roaming/.minecraft', 'c:/users/leo/appdata/local/discord'],
+    blocked_apps: ['c:/program files/epic games/fortnite', 'c:/program files/tor browser'],
+    allowed_sites: ['youtube.com', 'bbc.co.uk', 'wikipedia.org', 'coolmathgames.com'],
+    blocked_sites: ['tiktok.com', 'roblox.com'],
+    ask_unknown: true, ask_unknown_sites: true, unrestricted: false,
+    schedule: { enabled: true, days: { mon: ['16:00-20:00'], tue: ['16:00-20:00'], wed: ['16:00-20:00'], thu: ['16:00-20:00'], fri: ['16:00-21:30'], sat: ['09:00-21:30'], sun: ['09:00-20:00'] } },
+  };
+  queue = [
+    { app: 'c:/users/leo/appdata/local/programs/roblox', kind: 'app', name: 'Roblox', path: 'C:\\Users\\Leo\\AppData\\Local\\Programs\\Roblox', requested_at: now - 40000 },
+    { app: 'site:twitch.tv', kind: 'site', name: 'twitch.tv', path: 'www.twitch.tv', requested_at: now - 300000 },
+    { app: 'c:/program files/spotify', kind: 'app', name: 'Spotify', path: 'C:\\Program Files\\Spotify', requested_at: now - 1500000 },
+  ];
+  parentList = [{ id: myId(), name: 'You', added: now / 1000 - 86400 * 9 }, { id: 'mum', name: 'Mum', added: now / 1000 - 86400 * 7 }];
+  waitingParents = [{ id: 'gran', name: 'Gran' }];
+
+  // A pretend desktop on his screen.
+  function drawDesktop() {
+    canvas.width = 1920; canvas.height = 1080;
+    const g = ctx.createLinearGradient(0, 0, 1920, 1080); g.addColorStop(0, '#1e3a8a'); g.addColorStop(1, '#0f766e');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+    // Plain desktop: wallpaper, a few folders, taskbar. No real apps or brands.
+    const glow = ctx.createRadialGradient(1300, 380, 50, 1300, 380, 900); glow.addColorStop(0, 'rgba(255,255,255,.18)'); glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, 1920, 1080);
+    const folder = (x, y, label) => {
+      ctx.fillStyle = '#f5c451'; ctx.beginPath(); ctx.roundRect(x, y + 10, 84, 64, 8); ctx.fill();
+      ctx.fillStyle = '#e8ad2e'; ctx.beginPath(); ctx.roundRect(x, y, 38, 20, 6); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '22px Segoe UI, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, x + 42, y + 108); ctx.textAlign = 'left';
+    };
+    folder(40, 40, 'Homework'); folder(40, 180, 'Photos'); folder(40, 320, 'Music');
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.roundRect(54, 470, 56, 66, 8); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '22px Segoe UI, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Recycle Bin', 82, 572); ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(16,18,27,.94)'; ctx.fillRect(0, 1032, 1920, 48);
+    ['#3b82f6', '#94a3b8', '#94a3b8', '#94a3b8'].forEach((c, i) => { ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect(860 + i * 56, 1040, 32, 32, 7); ctx.fill(); });
+    ctx.fillStyle = '#fff'; ctx.font = '22px Segoe UI, sans-serif'; ctx.fillText('16:42', 1830, 1064);
+  }
+
+  ws = { readyState: 1, send() {}, close() {} };
+  linked = true; document.body.classList.add('linked', 'viewing');
+  setStatus('Live', 'live');
+  drawDesktop();
+  agentInfo = { admin: false, version: '1.0.30' };
+  renderQueue(); renderParents(); renderUnrestricted(); renderEmpty(); renderAccount();
+  $('pname').value = 'Leo'; $('devid').value = '482913577'; $('code').value = 'demo-code-12';
+  goTo('requests');
+  setTimeout(() => {
+    const sel = document.getElementById('monitors');
+    if (sel && !sel.options.length) { sel.add(new Option('Screen 1 (main) · 1920×1080', 0)); sel.add(new Option('Screen 2 · 2560×1440', 1)); }
+  }, 50);
+  // The Screen page's monitor list is rebuilt each visit.
+  const _rta = renderTopbarActions;
+  renderTopbarActions = page => { _rta(page); const sel = document.getElementById('monitors'); if (sel && !sel.options.length) { sel.add(new Option('Screen 1 (main) · 1920×1080', 0)); sel.add(new Option('Screen 2 · 2560×1440', 1)); } };
+  // Taking control in the preview just shows the banner.
+  setControl = on => { control = on; canvas.classList.toggle('control', on); $('control-banner').classList.toggle('show', on); renderTopbarActions('view'); toast(on ? 'Restrictions paused while you have control' : 'Control handed back'); };
+  sendClipboard = () => toast('Clipboard sent to his PC');
+  // Pre-fill the Rules page each time it opens.
+  document.getElementById('nav-rules').click(); goTo('requests');
+  document.body.insertAdjacentHTML('beforeend', '<div class="demo-note">Preview with example data</div>');
+})();
+</script>
+</body>
+</html>
