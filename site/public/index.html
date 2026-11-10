@@ -170,6 +170,22 @@ document.addEventListener('pointerleave', () => { px = py = -1e4; placeGlow(); }
 
 // Scroll: progress bar, nav shadow, screenshot tilts flat as you scroll.
 const shot = document.getElementById('shot'), nav = document.querySelector('.nav'), bar = document.querySelector('.progress');
+// Smooth tilt: events set a target, and one animation loop eases toward it every frame.
+const tilt = { rx: 14, ry: 0, s: .94, gx: 50, gy: 0 }, cur = { ...tilt };
+{
+  const realSet = shot.style.setProperty.bind(shot.style);
+  shot.style.setProperty = (k, v) => { const key = k.slice(2); if (key in tilt) tilt[key] = parseFloat(v); else realSet(k, v); };
+  const step = () => {
+    let moving = false;
+    for (const k in tilt) { const d = tilt[k] - cur[k]; if (Math.abs(d) > .001) { cur[k] += d * .14; moving = true; } }
+    if (moving) {
+      realSet('--rx', cur.rx.toFixed(3) + 'deg'); realSet('--ry', cur.ry.toFixed(3) + 'deg'); realSet('--s', cur.s.toFixed(4));
+      realSet('--gx', cur.gx.toFixed(2) + '%'); realSet('--gy', cur.gy.toFixed(2) + '%');
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
 let ticking = false;
 function onScroll() {
   const y = scrollY, max = document.documentElement.scrollHeight - innerHeight;
