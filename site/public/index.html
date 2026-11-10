@@ -7,10 +7,12 @@
 <meta name="description" content="Guardian lets parents watch and manage their child's Windows PC: live screen, app and website approvals, screen time.">
 <link rel="icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script>document.documentElement.classList.add('js')</script>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<div class="progress" aria-hidden="true"></div>
 <nav class="nav"><div class="wrap">
   <a class="logo" href="/">
     <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true"><defs><linearGradient id="g" x1="16" y1="2" x2="16" y2="30" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4f7cff"/><stop offset="1" stop-color="#2353e8"/></linearGradient></defs><path d="M16 2 28 7v9c0 6.5-5.5 11.5-12 14C9.5 27.5 4 22.5 4 16V7z" fill="url(#g)"/><rect x="11.5" y="16" width="9" height="8" rx="1.5" fill="#fff"/><path d="M13 16v-3c0-2.2 6-2.2 6 0v3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -24,11 +26,11 @@
   </div>
 </div></nav>
 
-<header class="hero"><div class="wrap">
-  <span class="eyebrow">For Windows PCs</span>
-  <h1>See what they see. <em>Decide what they open.</em></h1>
-  <p class="lead">Guardian puts your child's PC on your screen. Watch it live, take control when they need help, and approve every new app and website before it opens.</p>
-  <div class="cta">
+<header class="hero"><div class="grid-bg"></div><div class="blob b1"></div><div class="blob b2"></div><div class="wrap">
+  <span class="eyebrow fade" style="--d:0s">For Windows PCs</span>
+  <h1 id="h1">See what they see. <em>Decide what they open.</em></h1>
+  <p class="lead fade" style="--d:.55s">Guardian puts your child's PC on your screen. Watch it live, take control when they need help, and approve every new app and website before it opens.</p>
+  <div class="cta fade" style="--d:.7s">
     <a class="btn btn-primary" href="#download">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>
       Download Guardian
@@ -36,42 +38,42 @@
     <a class="btn btn-ghost" href="#features">See what it does</a>
   </div>
   <div class="ver" id="ver"></div>
-  <div class="shot"><img src="/app-requests.webp" width="1600" height="1000" alt="The Guardian app showing three access requests: Roblox, twitch.tv and Spotify, each with Deny, Temporary Access and Approve buttons"></div>
+  <div class="shot-stage fade" style="--d:.85s"><div class="shot" id="shot"><img src="/app-requests.webp" width="1600" height="1000" alt="The Guardian app showing three access requests: Roblox, twitch.tv and Spotify, each with Deny, Temporary Access and Approve buttons"></div></div>
 </div></header>
 
 <section id="features"><div class="wrap">
-  <div class="sec-head">
+  <div class="sec-head reveal">
     <h2>Everything happens on your PC, not theirs</h2>
     <p>There's nothing on their PC to click, close or end. Guardian runs as a protected Windows service they can't switch off.</p>
   </div>
   <div class="grid">
-    <div class="feat">
+    <div class="feat reveal">
       <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8m-4-2v2"/></svg></div>
       <h3>Their screen, live</h3>
       <p>Watch any of their monitors. Press Take control to use their mouse and keyboard when they need a hand.</p>
     </div>
-    <div class="feat">
+    <div class="feat reveal">
       <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
       <h3>Ask before anything new</h3>
       <p>Open a new app or website and you get a popup. Pick one:</p>
       <div class="btnrow"><span class="pill d">Deny</span><span class="pill t">Temporary Access</span><span class="pill a">Approve</span></div>
     </div>
-    <div class="feat">
+    <div class="feat reveal">
       <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
       <h3>Screen time</h3>
       <p>Set the hours the PC can be used each day. Outside them it locks itself.</p>
     </div>
-    <div class="feat">
+    <div class="feat reveal">
       <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/></svg></div>
       <h3>Safer browsing built in</h3>
       <p>Adult and harmful sites are blocked on top of your own rules, in every browser.</p>
     </div>
-    <div class="feat">
+    <div class="feat reveal">
       <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <h3>For both parents</h3>
       <p>Each parent has their own app and account. New parents have to be approved by one who's already set up.</p>
     </div>
-    <div class="feat">
+    <div class="feat reveal">
       <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
       <h3>Locked to you</h3>
       <p>Your password or Windows Hello is needed every time the app starts, so nobody else can open it on your PC.</p>
@@ -80,24 +82,24 @@
 </div></section>
 
 <section id="setup"><div class="wrap">
-  <div class="sec-head"><h2>Setting up takes ten minutes</h2></div>
+  <div class="sec-head reveal"><h2>Setting up takes ten minutes</h2></div>
   <div class="steps">
-    <div class="step"><h3>Install on your PC</h3><p>Download Guardian, make your account, and confirm it with the code we email you.</p></div>
-    <div class="step"><h3>Install on their PC</h3><p>From an administrator account, run the Child PC installer. Write down the Device ID and pairing code it shows. Make sure their own Windows account is a standard account.</p></div>
-    <div class="step"><h3>Link them</h3><p>In Guardian, open Settings, type the Device ID and pairing code, and you're watching. Updates install themselves from then on.</p></div>
+    <div class="step reveal"><h3>Install on your PC</h3><p>Download Guardian, make your account, and confirm it with the code we email you.</p></div>
+    <div class="step reveal"><h3>Install on their PC</h3><p>From an administrator account, run the Child PC installer. Write down the Device ID and pairing code it shows. Make sure their own Windows account is a standard account.</p></div>
+    <div class="step reveal"><h3>Link them</h3><p>In Guardian, open Settings, type the Device ID and pairing code, and you're watching. Updates install themselves from then on.</p></div>
   </div>
 </div></section>
 
 <section id="download"><div class="wrap">
-  <div class="sec-head"><h2>Download</h2><p>Always the newest version. Windows 10 and 11, 64-bit.</p></div>
+  <div class="sec-head reveal"><h2>Download</h2><p>Always the newest version. Windows 10 and 11, 64-bit.</p></div>
   <div class="dl">
-    <div class="dl-card">
+    <div class="dl-card reveal">
       <h3>Guardian for parents</h3>
       <p>The app for your PC. Watch their screen, answer requests and set the rules.</p>
       <a class="btn btn-primary" href="https://github.com/cbevss/Guardian/releases/latest/download/Guardian-Setup.exe">Download for your PC</a>
       <span class="tag">Guardian-Setup.exe</span>
     </div>
-    <div class="dl-card">
+    <div class="dl-card reveal">
       <h3>Guardian for their PC</h3>
       <p>Install once on the PC you're looking after, from an administrator account. It runs quietly in the background.</p>
       <a class="btn btn-ghost" href="https://github.com/cbevss/Guardian/releases/latest/download/Guardian-Child-PC-Setup.exe">Download for their PC</a>
@@ -107,18 +109,75 @@
 </div></section>
 
 <section id="faq"><div class="wrap">
-  <div class="sec-head"><h2>Questions</h2></div>
+  <div class="sec-head reveal"><h2>Questions</h2></div>
   <div class="faq">
-    <details><summary>Windows says "unknown publisher". Is that normal?</summary><p>Yes. Guardian isn't signed with a paid certificate yet. Click More info, then Run anyway.</p></details>
-    <details><summary>Does my PC need to be on?</summary><p>For now, Guardian connects over your home Wi-Fi, so a parent PC with Guardian running needs to be on the same network.</p></details>
-    <details><summary>Can they uninstall it?</summary><p>Not from a standard Windows account. Removing it needs an administrator password.</p></details>
-    <details><summary>I forgot my password</summary><p>Type it wrong five times, or press Forgot password, and we'll email you a reset code. You can also <a href="/reset">reset it here</a>.</p></details>
+    <details class="reveal"><summary>Windows says "unknown publisher". Is that normal?</summary><p>Yes. Guardian isn't signed with a paid certificate yet. Click More info, then Run anyway.</p></details>
+    <details class="reveal"><summary>Does my PC need to be on?</summary><p>For now, Guardian connects over your home Wi-Fi, so a parent PC with Guardian running needs to be on the same network.</p></details>
+    <details class="reveal"><summary>Can they uninstall it?</summary><p>Not from a standard Windows account. Removing it needs an administrator password.</p></details>
+    <details class="reveal"><summary>I forgot my password</summary><p>Type it wrong five times, or press Forgot password, and we'll email you a reset code. You can also <a href="/reset">reset it here</a>.</p></details>
   </div>
 </div></section>
 
 <footer><div class="wrap"><span>Guardian</span><span><a href="/reset">Reset password</a></span></div></footer>
 
 <script>
+// Headline: split into words so they rise in one after another.
+(function () {
+  let i = 0;
+  const split = el => [...el.childNodes].forEach(n => {
+    if (n.nodeType === 3) {
+      const frag = document.createDocumentFragment();
+      n.textContent.split(/(\s+)/).forEach(t => {
+        if (!t) return;
+        if (/^\s+$/.test(t)) { frag.append(t); return; }
+        const s = document.createElement('span'); s.className = 'w'; s.style.setProperty('--i', i++); s.textContent = t; frag.append(s);
+      });
+      n.replaceWith(frag);
+    } else if (n.nodeType === 1) split(n);
+  });
+  split(document.getElementById('h1'));
+})();
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Reveal sections as they scroll into view (staggered within each group).
+document.querySelectorAll('.grid, .steps, .dl, .faq').forEach(g => [...g.querySelectorAll('.reveal')].forEach((el, i) => el.style.setProperty('--i', i)));
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+setTimeout(() => document.querySelectorAll('.reveal').forEach(el => { if (el.getBoundingClientRect().top < innerHeight) el.classList.add('in'); }), 1200);
+
+// Cards: glow follows the mouse.
+document.querySelectorAll('.feat, .dl-card').forEach(c => c.addEventListener('pointermove', e => {
+  const r = c.getBoundingClientRect();
+  c.style.setProperty('--mx', (e.clientX - r.left) + 'px'); c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}));
+
+// Scroll: progress bar, nav shadow, screenshot tilts flat as you scroll.
+const shot = document.getElementById('shot'), nav = document.querySelector('.nav'), bar = document.querySelector('.progress');
+let ticking = false;
+function onScroll() {
+  const y = scrollY, max = document.documentElement.scrollHeight - innerHeight;
+  bar.style.setProperty('--p', max > 0 ? y / max : 0);
+  nav.classList.toggle('scrolled', y > 10);
+  if (!reduce) {
+    const t = Math.min(1, y / 420);
+    shot.style.setProperty('--rx', (14 - 14 * t) + 'deg'); shot.style.setProperty('--s', .94 + .06 * t);
+  }
+  ticking = false;
+}
+addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+onScroll();
+
+// Screenshot: tilts toward the mouse, with a light sheen.
+if (!reduce && matchMedia('(hover: hover)').matches) {
+  shot.addEventListener('pointermove', e => {
+    const r = shot.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    shot.style.setProperty('--ry', ((x - .5) * 8) + 'deg'); shot.style.setProperty('--rx', ((.5 - y) * 6) + 'deg');
+    shot.style.setProperty('--gx', x * 100 + '%'); shot.style.setProperty('--gy', y * 100 + '%');
+  });
+  shot.addEventListener('pointerleave', () => { shot.style.setProperty('--ry', '0deg'); onScroll(); });
+}
+
 // Show the newest version number next to the download button.
 fetch('https://api.github.com/repos/cbevss/Guardian/releases/latest').then(r => r.ok ? r.json() : null)
   .then(r => { if (r?.tag_name) document.getElementById('ver').textContent = 'Version ' + r.tag_name.replace(/^v/, ''); })
