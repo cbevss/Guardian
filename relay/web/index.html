@@ -480,6 +480,7 @@ body.framed .modal-backdrop { top: 34px; }
 .lock-card input { width:100%; text-align:center; padding:11px; font-size:15px; }
 .lock-card .btn { width:100%; justify-content:center; padding:11px; }
 .lock-err { min-height:18px; font-size:12.5px; color:var(--bad); }
+.lock-ver { font-size:11px; color:var(--muted); opacity:.7; }
 .lock-links { display:flex; gap:16px; justify-content:center; }
 .lock-link { background:none; border:none; color:var(--muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; }
 .lock-link:hover { color:var(--fg); }
@@ -734,6 +735,7 @@ body:not(.linked) #screen-wrap, body:not(.linked) .rules-grid, body:not(.linked)
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15 19 4m-3 3 3 3m-6-6 3 3"/></svg>
       Use a passkey
     </button>
+    <div class="lock-ver" id="lock-ver"></div>
     <div class="lock-links">
       <button class="lock-link" id="lock-forgot" hidden>Forgot password?</button>
       <button class="lock-link" id="lock-back" hidden>Back</button>
@@ -1188,7 +1190,10 @@ const unb64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 const b64url = a => b64(a).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const unb64url = t => unb64(t.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((t.length + 3) % 4));
 const desk = window.guardianDesktop;
-const sec = (name, ...a) => desk ? desk.sec(name, ...a) : Promise.resolve({ error: 'browser' });
+// Never leave a button stuck: anything that takes over 30 seconds gives up with a message.
+const sec = (name, ...a) => desk
+  ? Promise.race([desk.sec(name, ...a), new Promise(r => setTimeout(() => r({ ok: false, error: 'slow' }), 30000))])
+  : Promise.resolve({ error: 'browser' });
 async function pwKey(pw, salt) {
   const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
@@ -1228,6 +1233,7 @@ async function localUnlock(pw) {
 const server = (m, p, b) => sec('api', m, p, b, session.token);
 const serverSays = r => ({
   offline: "Can't reach Guardian's server. Check the internet connection.",
+  slow: "Guardian's server didn't answer in time. Check your internet, or that your antivirus isn't blocking Guardian, then try again.",
   bad_email: 'Type a valid email address', short_password: 'Use at least 8 characters for the password',
   exists: 'That email already has an account. Go back and sign in.', wait: 'A code was sent less than a minute ago. Check your inbox and spam folder.',
   wrong: 'That code is wrong. Check the email and try again.', expired: 'That code has expired. Ask for a new one.',
@@ -1368,6 +1374,7 @@ $('lock-forgot').onclick = () => {
 $('lock-back').onclick = () => { lockErr(''); showLock(account() ? 'login' : 'create'); };
 $('lock-alt').onclick = () => { lockErr(''); showLock('signin'); };
 ['lock-email','lock-code','lock-pw','lock-pw2'].forEach(i => $(i).addEventListener('keydown', e => { if (e.key === 'Enter') lockSubmit(); }));
+window.guardianDesktop?.version?.().then(v => { $('lock-ver').textContent = 'Version ' + v; });
 showLock();
 
 
